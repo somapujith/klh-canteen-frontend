@@ -6,9 +6,9 @@ const tabs = [
   { to: "/admin", label: "Dashboard" },
   { to: "/admin/inventory", label: "Inventory" },
   { to: "/admin/students", label: "Students" },
-  { to: "/admin/scan", label: "SCAN" },
   { to: "/admin/logs", label: "Logs" },
   { to: "/admin/payments", label: "Payments" },
+  { to: "/admin/scan", label: "SCAN" },
 ];
 
 export function AdminNav() {
@@ -34,7 +34,7 @@ export function AdminNav() {
               to={tab.to}
               end={tab.to === "/admin"}
               className={({ isActive }) =>
-                `transition ${
+                `transition ${isScan ? "ml-auto " : ""}${
                   isScan
                     ? `px-6 py-2 rounded-xl font-bold text-white shadow-md shadow-brand-500/30 ${
                         isActive ? "bg-brand-700 ring-2 ring-offset-2 ring-brand-500" : "bg-brand-600 hover:bg-brand-500"
