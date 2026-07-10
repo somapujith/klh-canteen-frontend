@@ -1,7 +1,16 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { apiClient } from "../../lib/apiClient";
+import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
 
 export function AdminDashboardPage() {
+  const { token } = useAuth();
+  const [stats, setStats] = useState({ totalOrdersToday: 0, totalRevenueToday: "0.00" });
+
+  useEffect(() => {
+    apiClient.get<typeof stats>("/admin/orders/stats", token ?? undefined).then(setStats).catch(console.error);
+  }, [token]);
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <AdminNav />
@@ -23,6 +32,18 @@ export function AdminDashboardPage() {
             </svg>
             OPEN SCANNER
           </Link>
+        </div>
+
+        {/* Stats Section */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center">
+            <div className="text-sm text-gray-500 font-medium mb-1">Today's Orders</div>
+            <div className="text-4xl font-black text-gray-900">{stats.totalOrdersToday}</div>
+          </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center">
+            <div className="text-sm text-gray-500 font-medium mb-1">Today's Revenue</div>
+            <div className="text-4xl font-black text-brand-600">₹{stats.totalRevenueToday}</div>
+          </div>
         </div>
 
         {/* Quick Links Grid */}
