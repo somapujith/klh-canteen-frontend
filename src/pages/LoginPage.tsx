@@ -71,27 +71,39 @@ export function LoginPage() {
           </button>
         </form>
 
-        <div className="pt-4 border-t border-gray-100 flex gap-2">
+        <div className="pt-4 border-t border-gray-100 grid grid-cols-1 gap-2">
           <button
             onClick={() => {
               setIdentifier("student@klh.edu.in");
               setPassword("student123");
             }}
-            className="flex-1 rounded-xl bg-gray-100 text-gray-700 py-2 text-sm font-medium hover:bg-gray-200 transition"
+            className="w-full rounded-xl bg-gray-100 text-gray-700 py-2 text-sm font-medium hover:bg-gray-200 transition"
             type="button"
           >
             Fill Student
           </button>
-          <button
-            onClick={() => {
-              setIdentifier("admin@klh.edu.in");
-              setPassword("changeme123");
-            }}
-            className="flex-1 rounded-xl bg-gray-100 text-gray-700 py-2 text-sm font-medium hover:bg-gray-200 transition"
-            type="button"
-          >
-            Fill Admin
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setIdentifier("snacks_admin@klh.edu.in");
+                setPassword("changeme123");
+              }}
+              className="flex-1 rounded-xl bg-red-50 text-red-700 py-2 text-sm font-medium hover:bg-red-100 transition"
+              type="button"
+            >
+              Snacks Admin
+            </button>
+            <button
+              onClick={() => {
+                setIdentifier("meals_admin@klh.edu.in");
+                setPassword("changeme123");
+              }}
+              className="flex-1 rounded-xl bg-brand-50 text-brand-700 py-2 text-sm font-medium hover:bg-brand-100 transition"
+              type="button"
+            >
+              Meals Admin
+            </button>
+          </div>
         </div>
       </div>
     </div>

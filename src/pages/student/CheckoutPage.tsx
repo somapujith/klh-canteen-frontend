@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
+import { useToast } from "../../context/ToastContext";
 import { Navbar } from "../../components/Navbar";
 
 interface OrderResponse {
@@ -13,6 +14,7 @@ export function CheckoutPage() {
   const { token } = useAuth();
   const { items, updateQty, removeItem, total, clear } = useCart();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,13 +22,14 @@ export function CheckoutPage() {
     setPlacing(true);
     setError(null);
     try {
-      const order = await apiClient.post<OrderResponse>(
+      const orders = await apiClient.post<OrderResponse[]>(
         "/orders",
         { items: items.map((i) => ({ menuItemId: i.menuItemId, qty: i.qty })) },
         token ?? undefined
       );
       clear();
-      navigate(`/student/order/${order.id}`, { replace: true });
+      showToast("Order placed successfully!", "success");
+      navigate(`/student/order/${orders.map(o => o.id).join(",")}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment failed");
     } finally {
