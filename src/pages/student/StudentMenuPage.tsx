@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
-import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { Navbar } from "../../components/Navbar";
 
@@ -20,7 +19,6 @@ interface Category {
 }
 
 export function StudentMenuPage() {
-  const { token } = useAuth();
   const { items: cartItems, addItem, total } = useCart();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);

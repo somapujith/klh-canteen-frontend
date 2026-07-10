@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { CartProvider, useCart } from "./CartContext";
 
