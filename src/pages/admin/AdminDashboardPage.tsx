@@ -3,14 +3,97 @@ import { useEffect, useState } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
+import { generatePDF } from "../../utils/pdfExport";
 
 export function AdminDashboardPage() {
   const { token } = useAuth();
   const [stats, setStats] = useState({ totalOrdersToday: 0, totalRevenueToday: "0.00" });
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     apiClient.get<typeof stats>("/admin/orders/stats", token ?? undefined).then(setStats).catch(console.error);
   }, [token]);
+
+  async function exportInventory() {
+    setIsExporting(true);
+    try {
+      const { categories } = await apiClient.get<{ categories: any[] }>("/menu");
+      const rows: any[][] = [];
+      categories.forEach((cat) => {
+        cat.items.forEach((item: any) => {
+          rows.push([
+            cat.name,
+            item.name,
+            `Rs. ${item.price}`,
+            item.stockQty.toString(),
+            item.isAvailable ? "Yes" : "No"
+          ]);
+        });
+      });
+      await generatePDF("Inventory Status Report", ["Category", "Item Name", "Price", "Stock Quantity", "Visible"], rows, "KLH_Inventory_Report");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export inventory");
+    }
+    setIsExporting(false);
+  }
+
+  async function exportSales() {
+    setIsExporting(true);
+    try {
+      const orders = await apiClient.get<any[]>("/admin/orders", token ?? undefined);
+      
+      const salesMap = new Map<string, { qty: number, revenue: number, name: string }>();
+      
+      orders.forEach(order => {
+        if (order.status === "DELIVERED") {
+          order.items.forEach((item: any) => {
+            const current = salesMap.get(item.menuItem.id) || { qty: 0, revenue: 0, name: item.menuItem.name };
+            current.qty += item.qty;
+            current.revenue += item.qty * Number(item.priceAtTime);
+            salesMap.set(item.menuItem.id, current);
+          });
+        }
+      });
+
+      const rows = Array.from(salesMap.values())
+        .sort((a, b) => b.revenue - a.revenue)
+        .map(s => [
+          s.name,
+          s.qty.toString(),
+          `Rs. ${s.revenue.toFixed(2)}`
+        ]);
+
+      await generatePDF("Sales Summary (Delivered Orders)", ["Item Name", "Total Quantity Sold", "Total Revenue"], rows, "KLH_Sales_Report");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export sales");
+    }
+    setIsExporting(false);
+  }
+
+  async function exportLogs() {
+    setIsExporting(true);
+    try {
+      const orders = await apiClient.get<any[]>("/admin/orders", token ?? undefined);
+      
+      const rows = orders.map(order => [
+        order.id.slice(0, 8).toUpperCase(),
+        new Date(order.createdAt).toLocaleString(),
+        order.student?.name || order.student?.email || "Unknown",
+        `${order.items.length} items`,
+        `Rs. ${order.totalAmount}`,
+        order.status
+      ]);
+
+      await generatePDF("Transaction Logs", ["Order ID", "Date", "Student", "Items", "Total", "Status"], rows, "KLH_Transaction_Logs");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export logs");
+    }
+    setIsExporting(false);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <AdminNav />
@@ -90,11 +173,48 @@ export function AdminDashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 text-lg">Payments</h3>
-              <p className="text-sm text-gray-500 mt-1">Gateway transactions</p>
-            </div>
+            <span className="font-medium text-gray-900 group-hover:text-brand-600 transition">Payments</span>
           </Link>
+        </div>
+
+        {/* Export Reports Section */}
+        <div className="mt-8">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Export Reports</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button 
+              onClick={exportSales} 
+              disabled={isExporting}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:border-brand-500 hover:shadow-md transition text-left group disabled:opacity-50"
+            >
+              <div>
+                <div className="font-semibold text-gray-900 group-hover:text-brand-600 transition">Export Sales</div>
+                <div className="text-xs text-gray-500 mt-1">Item-wise revenue summary</div>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            </button>
+            <button 
+              onClick={exportInventory} 
+              disabled={isExporting}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:border-brand-500 hover:shadow-md transition text-left group disabled:opacity-50"
+            >
+              <div>
+                <div className="font-semibold text-gray-900 group-hover:text-brand-600 transition">Export Inventory</div>
+                <div className="text-xs text-gray-500 mt-1">Current stock and prices</div>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            </button>
+            <button 
+              onClick={exportLogs} 
+              disabled={isExporting}
+              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between hover:border-brand-500 hover:shadow-md transition text-left group disabled:opacity-50"
+            >
+              <div>
+                <div className="font-semibold text-gray-900 group-hover:text-brand-600 transition">Export Transaction Logs</div>
+                <div className="text-xs text-gray-500 mt-1">Full order history details</div>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover:text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
