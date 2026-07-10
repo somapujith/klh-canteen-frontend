@@ -9,6 +9,9 @@ import { OrderHistoryPage } from "./pages/student/OrderHistoryPage";
 import { AdminMenuPage } from "./pages/admin/AdminMenuPage";
 import { AdminStudentsPage } from "./pages/admin/AdminStudentsPage";
 import { AdminScanPage } from "./pages/admin/AdminScanPage";
+import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
+import { AdminLogsPage } from "./pages/admin/AdminLogsPage";
+import { AdminPaymentsPage } from "./pages/admin/AdminPaymentsPage";
 
 function RoleRedirect() {
   const { token, role } = useAuth();
@@ -30,9 +33,12 @@ export default function App() {
       </Route>
 
       <Route element={<ProtectedRoute role="ADMIN" />}>
-        <Route path="/admin" element={<AdminMenuPage />} />
+        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin/inventory" element={<AdminMenuPage />} />
         <Route path="/admin/students" element={<AdminStudentsPage />} />
         <Route path="/admin/scan" element={<AdminScanPage />} />
+        <Route path="/admin/logs" element={<AdminLogsPage />} />
+        <Route path="/admin/payments" element={<AdminPaymentsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

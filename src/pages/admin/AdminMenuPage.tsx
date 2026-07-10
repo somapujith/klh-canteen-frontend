@@ -10,6 +10,7 @@ interface MenuItem {
   price: string;
   stockQty: number;
   categoryId: string;
+  isAvailable: boolean;
 }
 
 interface Category {
@@ -56,6 +57,11 @@ export function AdminMenuPage() {
 
   async function handlePriceChange(itemId: string, price: string) {
     await apiClient.patch(`/admin/menu-items/${itemId}`, { price }, token ?? undefined);
+    loadMenu();
+  }
+
+  async function handleAvailabilityChange(itemId: string, isAvailable: boolean) {
+    await apiClient.patch(`/admin/menu-items/${itemId}`, { isAvailable }, token ?? undefined);
     loadMenu();
   }
 
@@ -129,9 +135,16 @@ export function AdminMenuPage() {
             <h2 className="font-semibold text-brand-900 mb-3">{cat.name}</h2>
             <div className="space-y-2">
               {cat.items.map((item) => (
-                <div key={item.id} className="flex flex-wrap sm:flex-nowrap items-center gap-3 border-b border-gray-100 pb-2">
+                <div key={item.id} className={`flex flex-wrap sm:flex-nowrap items-center gap-3 border-b border-gray-100 pb-2 ${!item.isAvailable || item.stockQty === 0 ? 'opacity-60 grayscale' : ''}`}>
                   <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg object-cover shrink-0" />
-                  <span className="flex-1 text-sm min-w-[120px]">{item.name}</span>
+                  <div className="flex-1 min-w-[120px]">
+                    <span className="text-sm font-medium block">{item.name}</span>
+                    {item.isAvailable && item.stockQty > 0 ? (
+                      <span className="text-[10px] font-bold text-green-600 bg-green-100 px-1.5 py-0.5 rounded-md uppercase tracking-wider">Visible to Students</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-md uppercase tracking-wider">Hidden from Students</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                     <div className="flex-1 sm:w-24 flex items-center gap-2">
                       <span className="text-xs text-gray-500 sm:hidden">Price</span>
@@ -150,6 +163,15 @@ export function AdminMenuPage() {
                         className="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm"
                       />
                     </div>
+                    <label className="flex items-center gap-2 cursor-pointer ml-2">
+                      <input
+                        type="checkbox"
+                        checked={item.isAvailable}
+                        onChange={(e) => handleAvailabilityChange(item.id, e.target.checked)}
+                        className="rounded border-gray-300 text-brand-600 focus:ring-brand-600"
+                      />
+                      <span className="text-xs text-gray-600">Active</span>
+                    </label>
                   </div>
                 </div>
               ))}
