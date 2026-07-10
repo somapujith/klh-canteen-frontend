@@ -64,7 +64,7 @@ export function AdminMenuPage() {
       <AdminNav />
 
       <div className="max-w-3xl mx-auto p-4 space-y-6">
-        <form onSubmit={handleAddCategory} className="bg-white rounded-2xl shadow-sm p-4 flex gap-3">
+        <form onSubmit={handleAddCategory} className="bg-white rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row gap-3">
           <input
             value={newCategoryName}
             onChange={(e) => setNewCategoryName(e.target.value)}
@@ -76,7 +76,7 @@ export function AdminMenuPage() {
           </button>
         </form>
 
-        <form onSubmit={handleAddItem} className="bg-white rounded-2xl shadow-sm p-4 grid grid-cols-2 gap-3">
+        <form onSubmit={handleAddItem} className="bg-white rounded-2xl shadow-sm p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -129,20 +129,28 @@ export function AdminMenuPage() {
             <h2 className="font-semibold text-brand-900 mb-3">{cat.name}</h2>
             <div className="space-y-2">
               {cat.items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 border-b border-gray-100 pb-2">
-                  <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg object-cover" />
-                  <span className="flex-1 text-sm">{item.name}</span>
-                  <input
-                    defaultValue={item.price}
-                    onBlur={(e) => handlePriceChange(item.id, e.target.value)}
-                    className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm"
-                  />
-                  <input
-                    type="number"
-                    defaultValue={item.stockQty}
-                    onBlur={(e) => handleStockChange(item.id, Number(e.target.value))}
-                    className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm"
-                  />
+                <div key={item.id} className="flex flex-wrap sm:flex-nowrap items-center gap-3 border-b border-gray-100 pb-2">
+                  <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg object-cover shrink-0" />
+                  <span className="flex-1 text-sm min-w-[120px]">{item.name}</span>
+                  <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                    <div className="flex-1 sm:w-24 flex items-center gap-2">
+                      <span className="text-xs text-gray-500 sm:hidden">Price</span>
+                      <input
+                        defaultValue={item.price}
+                        onBlur={(e) => handlePriceChange(item.id, e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                      />
+                    </div>
+                    <div className="flex-1 sm:w-24 flex items-center gap-2">
+                      <span className="text-xs text-gray-500 sm:hidden">Stock</span>
+                      <input
+                        type="number"
+                        defaultValue={item.stockQty}
+                        onBlur={(e) => handleStockChange(item.id, Number(e.target.value))}
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

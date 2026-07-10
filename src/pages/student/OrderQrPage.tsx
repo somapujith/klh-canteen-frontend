@@ -10,6 +10,7 @@ interface OrderDetail {
   totalAmount: string;
   qrDataUrl?: string;
   token: string;
+  orderNumber: number;
   items: { quantity: number; menuItem: { name: string } }[];
 }
 
@@ -32,7 +33,7 @@ export function OrderQrPage() {
         <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
           <p className="text-sm text-gray-500">Show this QR at the counter</p>
           {order.qrDataUrl && <img src={order.qrDataUrl} alt="Order QR code" className="mx-auto rounded-xl" />}
-          <p className="text-xs text-gray-400 break-all">{order.token}</p>
+          <p className="text-2xl font-bold text-brand-900 tracking-wider">#{order.orderNumber}</p>
           <span
             className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
               order.status === "DELIVERED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"

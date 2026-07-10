@@ -6,6 +6,7 @@ import { AdminNav } from "../../components/AdminNav";
 
 interface ScannedOrder {
   id: string;
+  orderNumber: number;
   status: string;
   items: { quantity: number; menuItem: { name: string } }[];
   student: { name: string };
@@ -99,7 +100,9 @@ export function AdminScanPage() {
 
         {order && (
           <div className="bg-white rounded-2xl shadow-sm p-4 space-y-4">
-            <h2 className="font-semibold text-brand-900">{order.student.name}'s Order</h2>
+            <h2 className="font-semibold text-brand-900">
+              #{order.orderNumber} - {order.student.name}
+            </h2>
             <ul className="space-y-1 text-sm">
               {order.items.map((line, idx) => (
                 <li key={idx}>

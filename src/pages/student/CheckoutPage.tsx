@@ -40,12 +40,12 @@ export function CheckoutPage() {
       <div className="p-4 space-y-3 max-w-lg mx-auto">
         {items.length === 0 && <p className="text-center text-gray-500 py-12">Your cart is empty.</p>}
         {items.map((line) => (
-          <div key={line.menuItemId} className="bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between">
+          <div key={line.menuItemId} className="bg-white rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
             <div>
               <p className="font-medium">{line.name}</p>
               <p className="text-sm text-gray-500">₹{line.price} each</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between sm:justify-end gap-3">
               <input
                 type="number"
                 min={1}

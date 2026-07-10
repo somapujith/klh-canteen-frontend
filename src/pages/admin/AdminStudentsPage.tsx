@@ -53,8 +53,8 @@ export function AdminStudentsPage() {
         </form>
 
         {results.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm p-4">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-2xl shadow-sm p-4 overflow-x-auto">
+            <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr className="text-left text-gray-500">
                   <th className="pb-2">Row</th>

@@ -13,16 +13,16 @@ export function AdminNav() {
 
   return (
     <nav className="bg-white rounded-b-2xl shadow-sm">
-      <div className="flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-3">
-          <Logo className="h-9" />
-          <span className="font-semibold text-brand-900">KLH Admin</span>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Logo className="h-8 sm:h-9 shrink-0" />
+          <span className="font-semibold text-brand-900 truncate">KLH Admin</span>
         </div>
-        <button onClick={logout} className="rounded-xl border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+        <button onClick={logout} className="shrink-0 rounded-xl border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
           Log out
         </button>
       </div>
-      <div className="flex gap-2 px-6 pb-3">
+      <div className="flex gap-2 px-4 sm:px-6 pb-3 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}

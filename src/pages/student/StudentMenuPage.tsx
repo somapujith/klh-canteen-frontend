@@ -46,7 +46,7 @@ export function StudentMenuPage() {
         <Link to="/student/orders" className="text-sm text-brand-700 underline">My Orders</Link>
       </div>
 
-      <div className="px-4 pt-4 flex gap-2 overflow-x-auto">
+      <div className="px-4 pt-4 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {categories.map((cat) => (
           <button
             key={cat.id}
@@ -83,7 +83,7 @@ export function StudentMenuPage() {
       </div>
 
       {cartItems.length > 0 && (
-        <div className="fixed bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-[0_-2px_10px_rgba(0,0,0,0.08)] p-4 flex items-center justify-between">
+        <div className="fixed bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-[0_-2px_10px_rgba(0,0,0,0.08)] p-4 flex items-center justify-between z-10">
           <div>
             <p className="text-sm text-gray-500">{cartItems.length} item(s)</p>
             <p className="font-semibold text-brand-900">₹{total.toFixed(2)}</p>

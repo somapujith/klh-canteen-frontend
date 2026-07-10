@@ -8,6 +8,7 @@ interface OrderSummary {
   id: string;
   status: string;
   totalAmount: string;
+  orderNumber: number;
   createdAt: string;
   items: { quantity: number; menuItem: { name: string } }[];
 }
@@ -32,7 +33,10 @@ export function OrderHistoryPage() {
             className="block bg-white rounded-2xl shadow-sm p-4 hover:shadow-md transition"
           >
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleString()}</span>
+              <div>
+                <span className="font-semibold text-brand-900 mr-2">#{order.orderNumber}</span>
+                <span className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleString()}</span>
+              </div>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                   order.status === "DELIVERED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
