@@ -145,32 +145,32 @@ export function AdminMenuPage() {
                       <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-md uppercase tracking-wider">Hidden from Students</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <div className="flex-1 sm:w-24 flex items-center gap-2">
-                      <span className="text-xs text-gray-500 sm:hidden">Price</span>
+                  <div className="flex items-end gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                    <div className="flex-1 sm:w-24 flex flex-col gap-1">
+                      <span className="text-xs text-gray-500 font-medium px-1">Price (₹)</span>
                       <input
                         defaultValue={item.price}
                         onBlur={(e) => handlePriceChange(item.id, e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
                       />
                     </div>
-                    <div className="flex-1 sm:w-24 flex items-center gap-2">
-                      <span className="text-xs text-gray-500 sm:hidden">Stock</span>
+                    <div className="flex-1 sm:w-24 flex flex-col gap-1">
+                      <span className="text-xs text-gray-500 font-medium px-1">Stock</span>
                       <input
                         type="number"
                         defaultValue={item.stockQty}
                         onBlur={(e) => handleStockChange(item.id, Number(e.target.value))}
-                        className="w-full rounded-lg border border-gray-300 px-2 py-1 text-sm"
+                        className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm"
                       />
                     </div>
-                    <label className="flex items-center gap-2 cursor-pointer ml-2">
+                    <label className="flex items-center gap-2 cursor-pointer mb-2 ml-1">
                       <input
                         type="checkbox"
                         checked={item.isAvailable}
                         onChange={(e) => handleAvailabilityChange(item.id, e.target.checked)}
                         className="rounded border-gray-300 text-brand-600 focus:ring-brand-600"
                       />
-                      <span className="text-xs text-gray-600">Active</span>
+                      <span className="text-xs font-medium text-gray-700">Active</span>
                     </label>
                   </div>
                 </div>
