@@ -28,9 +28,8 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-50 px-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8 space-y-6">
-        <div className="flex flex-col items-center gap-2">
-          <Logo className="h-14" />
-          <h1 className="text-xl font-semibold text-brand-900">KLH Pantry</h1>
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <Logo className="h-24" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -71,6 +70,31 @@ export function LoginPage() {
             {loading ? "Logging in..." : "Log In"}
           </button>
         </form>
+
+        {import.meta.env.DEV && (
+          <div className="pt-4 border-t border-gray-100 flex gap-2">
+            <button
+              onClick={() => {
+                setIdentifier("student@klh.edu.in");
+                setPassword("student123");
+              }}
+              className="flex-1 rounded-xl bg-gray-100 text-gray-700 py-2 text-sm font-medium hover:bg-gray-200 transition"
+              type="button"
+            >
+              Fill Student
+            </button>
+            <button
+              onClick={() => {
+                setIdentifier("admin@klh.edu.in");
+                setPassword("changeme123");
+              }}
+              className="flex-1 rounded-xl bg-gray-100 text-gray-700 py-2 text-sm font-medium hover:bg-gray-200 transition"
+              type="button"
+            >
+              Fill Admin
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
