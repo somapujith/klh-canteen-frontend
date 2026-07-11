@@ -8,6 +8,7 @@ interface ScannedOrder {
   id: string;
   orderNumber: number;
   status: string;
+  isLockedByOther?: boolean;
   items: { quantity: number; menuItem: { name: string } }[];
   student: { name: string };
 }
@@ -114,6 +115,11 @@ export function AdminScanPage() {
               <div className="bg-red-50 text-red-800 p-4 rounded-xl font-bold text-center border-2 border-red-200 shadow-sm animate-pulse flex flex-col gap-1 my-4">
                 <span className="text-lg">⚠️ ALREADY DELIVERED ⚠️</span>
                 <span className="text-sm font-medium text-red-600">Do not hand over items. This QR code was already used.</span>
+              </div>
+            ) : order.isLockedByOther ? (
+              <div className="bg-red-50 text-red-800 p-4 rounded-xl font-bold text-center border-2 border-red-200 shadow-sm animate-pulse flex flex-col gap-1 my-4">
+                <span className="text-lg">⚠️ IN PROCESS ⚠️</span>
+                <span className="text-sm font-medium text-red-600">It is being processed by another admin please check the student.</span>
               </div>
             ) : (
               <button
