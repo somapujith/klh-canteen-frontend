@@ -4,6 +4,7 @@ import { apiClient } from "../../lib/apiClient";
 import { useCart } from "../../context/CartContext";
 import { Navbar } from "../../components/Navbar";
 import { SkeletonCard } from "../../components/LoadingState";
+import { useSSE } from "../../hooks/useSSE";
 
 interface MenuItem {
   id: string;
@@ -26,15 +27,27 @@ export function StudentMenuPage() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchMenu = () => {
     apiClient
       .get<{ categories: Category[] }>("/menu")
       .then((data) => {
         setCategories(data.categories);
-        setActiveTab(data.categories[0]?.id ?? null);
+        if (!activeTab && data.categories.length > 0) {
+          setActiveTab(data.categories[0].id);
+        }
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchMenu();
   }, []);
+
+  useSSE(["MENU_UPDATE"], (event) => {
+    if (event.type === "MENU_UPDATE") {
+      fetchMenu();
+    }
+  });
 
   const activeCategory = categories.find((c) => c.id === activeTab);
 
@@ -84,9 +97,13 @@ export function StudentMenuPage() {
           activeCategory?.items.map((item) => (
             <div key={item.id} className="bg-surface rounded-2xl flat-shadow hover:flat-shadow-hover transition-all duration-300 overflow-hidden flex flex-col group">
               <div className="relative overflow-hidden">
-                <img src={item.imageUrl} alt={item.name} className="h-32 w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <img 
+                  src={item.imageUrl} 
+                  alt={item.name} 
+                  className={`h-32 w-full object-cover transition-transform duration-500 ${item.stockQty === 0 ? 'opacity-50 grayscale' : 'group-hover:scale-105'}`} 
+                />
                 {item.stockQty === 0 && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                  <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center">
                     <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">SOLD OUT</span>
                   </div>
                 )}
@@ -124,7 +141,7 @@ export function StudentMenuPage() {
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-0.5">Your Order</p>
             <div className="flex items-baseline gap-2">
               <span className="font-bold text-gray-900 text-lg">₹{total.toFixed(2)}</span>
-              <span className="text-sm font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md">{cartItems.length} item(s)</span>
+              <span className="text-sm font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md whitespace-nowrap">{cartItems.length} item(s)</span>
             </div>
           </div>
           <button

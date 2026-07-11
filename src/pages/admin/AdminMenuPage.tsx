@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
+import { useSSE } from "../../hooks/useSSE";
 
 interface MenuItem {
   id: string;
@@ -30,6 +31,12 @@ export function AdminMenuPage() {
   }
 
   useEffect(loadMenu, []);
+
+  useSSE(["MENU_UPDATE"], (event) => {
+    if (event.type === "MENU_UPDATE") {
+      loadMenu();
+    }
+  });
 
   async function handleAddCategory(e: FormEvent) {
     e.preventDefault();
@@ -62,6 +69,12 @@ export function AdminMenuPage() {
 
   async function handleAvailabilityChange(itemId: string, isAvailable: boolean) {
     await apiClient.patch(`/admin/menu-items/${itemId}`, { isAvailable }, token ?? undefined);
+    loadMenu();
+  }
+
+  async function handleBulkUpdate(categoryId: string, data: { isAvailable?: boolean; stockQty?: number }) {
+    if (!confirm("Are you sure you want to apply this bulk action?")) return;
+    await apiClient.patch(`/admin/categories/${categoryId}/bulk-items`, data, token ?? undefined);
     loadMenu();
   }
 
@@ -132,7 +145,23 @@ export function AdminMenuPage() {
 
         {categories.map((cat) => (
           <div key={cat.id} className="bg-white rounded-2xl shadow-sm p-4">
-            <h2 className="font-semibold text-brand-900 mb-3">{cat.name}</h2>
+            <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+              <h2 className="font-semibold text-brand-900">{cat.name}</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleBulkUpdate(cat.id, { isAvailable: false })}
+                  className="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                >
+                  Disable All
+                </button>
+                <button
+                  onClick={() => handleBulkUpdate(cat.id, { isAvailable: true })}
+                  className="text-xs bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                >
+                  Enable All
+                </button>
+              </div>
+            </div>
             <div className="space-y-2">
               {cat.items.map((item) => (
                 <div key={item.id} className={`flex flex-wrap sm:flex-nowrap items-center gap-3 border-b border-gray-100 pb-2 ${!item.isAvailable || item.stockQty === 0 ? 'opacity-60 grayscale' : ''}`}>

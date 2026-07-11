@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
+import { useSSE } from "../../hooks/useSSE";
 
 interface OrderSummary {
   id: string;
@@ -17,9 +18,20 @@ export function OrderHistoryPage() {
   const { token } = useAuth();
   const [orders, setOrders] = useState<OrderSummary[]>([]);
 
-  useEffect(() => {
+  const fetchOrders = () => {
     apiClient.get<OrderSummary[]>("/orders/my", token ?? undefined).then(setOrders);
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, [token]);
+
+  useSSE(["ORDER_UPDATE"], (event) => {
+    if (event.type === "ORDER_UPDATE") {
+      const { orderId, status } = event.data;
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    }
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">

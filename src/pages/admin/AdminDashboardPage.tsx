@@ -4,19 +4,41 @@ import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
 import { generatePDF } from "../../utils/pdfExport";
+import { useSSE } from "../../hooks/useSSE";
 
 export function AdminDashboardPage() {
   const { token } = useAuth();
   const [stats, setStats] = useState({ totalOrdersToday: 0, totalRevenueToday: "0.00" });
   const [isExporting, setIsExporting] = useState(false);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
 
-  useEffect(() => {
+  function loadDashboardData() {
     apiClient.get<typeof stats>("/admin/orders/stats", token ?? undefined)
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoadingStats(false));
+
+    apiClient.get<{ categories: any[] }>("/menu").then((data) => {
+      const items: any[] = [];
+      data.categories.forEach((cat) => {
+        cat.items.forEach((item: any) => {
+          if (item.stockQty < 10) {
+            items.push(item);
+          }
+        });
+      });
+      setLowStockItems(items);
+    }).catch(console.error);
+  }
+
+  useEffect(() => {
+    loadDashboardData();
   }, [token]);
+
+  useSSE(["MENU_UPDATE", "ORDER_UPDATE"], () => {
+    loadDashboardData();
+  });
 
   async function exportInventory() {
     setIsExporting(true);
@@ -140,6 +162,40 @@ export function AdminDashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Low Stock Alert Widget */}
+        {lowStockItems.length > 0 && (
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flat-shadow">
+            <div className="flex items-center gap-3 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <h2 className="text-lg font-bold text-red-900 tracking-tight">Low Stock Alerts ({lowStockItems.length})</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {lowStockItems.map(item => (
+                <div key={item.id} className="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <img src={item.imageUrl} alt={item.name} className="h-10 w-10 rounded-lg object-cover" />
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{item.name}</div>
+                      <div className="text-xs font-medium text-red-600">{item.stockQty} left</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      await apiClient.patch(`/admin/menu-items/${item.id}`, { stockQty: item.stockQty + 50 }, token ?? undefined);
+                      loadDashboardData();
+                    }}
+                    className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    +50
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Quick Links Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
