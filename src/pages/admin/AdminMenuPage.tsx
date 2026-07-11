@@ -71,7 +71,7 @@ export function AdminMenuPage() {
   async function handleDeleteCategory(categoryId: string) {
     if (!confirm("Are you sure you want to delete this category? Ensure all items in it are deleted first.")) return;
     try {
-      await apiClient.delete(`/admin/categories/${categoryId}`, undefined, token ?? undefined);
+      await apiClient.delete(`/admin/categories/${categoryId}`, token ?? undefined);
       loadMenu();
     } catch (err: any) {
       alert("Failed to delete category. Make sure it contains no menu items.");
@@ -98,7 +98,7 @@ export function AdminMenuPage() {
 
   async function handleDeleteItem(itemId: string) {
     if (!confirm("Are you sure you want to delete this menu item?")) return;
-    await apiClient.delete(`/admin/menu-items/${itemId}`, undefined, token ?? undefined);
+    await apiClient.delete(`/admin/menu-items/${itemId}`, token ?? undefined);
     loadMenu();
   }
 
