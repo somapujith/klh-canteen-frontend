@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { apiClient } from "../lib/apiClient";
 
-type Role = "STUDENT" | "ADMIN";
+type Role = "STUDENT" | "ADMIN" | "SUPERADMIN";
 
 interface StoredAuth {
   token: string;
