@@ -15,13 +15,13 @@ export function AdminNav() {
   const { logout } = useAuth();
 
   return (
-    <nav className="bg-white rounded-b-2xl shadow-sm">
+    <nav className="glass-panel rounded-b-2xl shadow-sm sticky top-0 z-40">
       <div className="flex items-center justify-between px-4 sm:px-6 py-3">
         <div className="flex items-center gap-2 sm:gap-3">
-          <Logo className="h-8 sm:h-9 shrink-0" />
-          <span className="font-semibold text-brand-900 truncate">KLH Admin</span>
+          <Logo className="h-8 sm:h-9 shrink-0 hover-scale" />
+          <span className="font-semibold text-gray-800 tracking-tight truncate">KLH Admin</span>
         </div>
-        <button onClick={logout} className="shrink-0 rounded-xl border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+        <button onClick={logout} className="shrink-0 rounded-xl border border-gray-200 px-3 py-1.5 text-sm hover:bg-surface-muted transition-colors font-medium text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
           Log out
         </button>
       </div>
@@ -34,13 +34,13 @@ export function AdminNav() {
               to={tab.to}
               end={tab.to === "/admin"}
               className={({ isActive }) =>
-                `transition ${isScan ? "ml-auto " : ""}${
+                `transition-all hover-scale ${
                   isScan
-                    ? `px-6 py-2 rounded-xl font-bold text-white shadow-md shadow-brand-500/30 ${
+                    ? `px-6 py-2 rounded-xl font-bold text-white flat-shadow ${
                         isActive ? "bg-brand-700 ring-2 ring-offset-2 ring-brand-500" : "bg-brand-600 hover:bg-brand-500"
                       }`
-                    : `rounded-full px-4 py-1.5 text-sm font-medium ${
-                        isActive ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    : `rounded-full px-4 py-1.5 text-sm font-medium border border-transparent ${
+                        isActive ? "bg-gray-800 text-white shadow-md" : "bg-gray-100/80 text-gray-700 hover:bg-gray-200 hover:border-gray-300"
                       }`
                 }`
               }
@@ -58,6 +58,8 @@ export function AdminNav() {
             </NavLink>
           );
         })}
+        {/* Spacer to ensure right padding is respected during horizontal scroll */}
+        <div className="w-2 shrink-0 sm:w-4" aria-hidden="true" />
       </div>
     </nav>
   );

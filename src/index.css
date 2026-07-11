@@ -1,18 +1,64 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #fdf2f2;
-  --color-brand-100: #fbe0e0;
-  --color-brand-300: #e58a8a;
-  --color-brand-500: #c62828;
-  --color-brand-600: #a81f1f;
-  --color-brand-700: #8a1919;
-  --color-brand-900: #4d0f0f;
+  --color-brand-50: #fef2f2;
+  --color-brand-100: #fee2e2;
+  --color-brand-300: #fca5a5;
+  --color-brand-500: #ef4444;
+  --color-brand-600: #dc2626;
+  --color-brand-700: #b91c1c;
+  --color-brand-900: #7f1d1d;
+
+  --color-surface: #ffffff;
+  --color-surface-hover: #f9fafb;
+  --color-surface-muted: #f3f4f6;
 
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+  background-color: #f9fafb;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Micro-animations and flat utilities */
+.hover-scale {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hover-scale:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+.hover-scale:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.flat-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.flat-shadow-hover {
+  transition: box-shadow 0.2s ease-in-out;
+}
+.flat-shadow-hover:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
 }
