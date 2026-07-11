@@ -110,12 +110,26 @@ export function AdminScanPage() {
                 </li>
               ))}
             </ul>
-            <button
-              onClick={handleDeliver}
-              disabled={delivering}
-              className="w-full rounded-xl bg-brand-600 text-white py-2.5 font-medium hover:bg-brand-700 disabled:opacity-50 transition"
+            {order.status === "DELIVERED" ? (
+              <div className="bg-red-50 text-red-800 p-4 rounded-xl font-bold text-center border-2 border-red-200 shadow-sm animate-pulse flex flex-col gap-1 my-4">
+                <span className="text-lg">⚠️ ALREADY DELIVERED ⚠️</span>
+                <span className="text-sm font-medium text-red-600">Do not hand over items. This QR code was already used.</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleDeliver}
+                disabled={delivering}
+                className="w-full rounded-xl bg-brand-600 text-white py-2.5 font-medium hover:bg-brand-700 disabled:opacity-50 transition mt-4"
+              >
+                {delivering ? "Confirming..." : "Mark as Delivered"}
+              </button>
+            )}
+            
+            <button 
+              onClick={startScanner} 
+              className="w-full text-sm text-gray-500 hover:text-gray-700 underline py-2 mt-2 transition-colors"
             >
-              {delivering ? "Confirming..." : "Mark as Delivered"}
+              Scan Another QR
             </button>
           </div>
         )}
