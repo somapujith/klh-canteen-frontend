@@ -103,7 +103,7 @@ export function LoginPage() {
           >
             Student Account
           </button>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => { setIdentifier("snacks_admin@klh.edu.in"); setPassword("changeme123"); }}
               className="flex-1 rounded-xl bg-surface-muted border border-gray-200 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-100 hover:border-gray-300 transition-all"
