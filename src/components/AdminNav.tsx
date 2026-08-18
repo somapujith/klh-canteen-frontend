@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Logo } from "./Logo";
 import { useAuth } from "../context/AuthContext";
 
-const tabs = [
+const adminTabs = [
   { to: "/admin", label: "Dashboard" },
   { to: "/admin/inventory", label: "Inventory" },
   { to: "/admin/students", label: "Students" },
@@ -11,8 +11,16 @@ const tabs = [
   { to: "/admin/scan", label: "SCAN" },
 ];
 
+const superAdminTabs = [
+  ...adminTabs,
+  { to: "/admin/users", label: "Users" },
+  { to: "/admin/system", label: "System" },
+  { to: "/admin/audit-log", label: "Audit Log" },
+];
+
 export function AdminNav() {
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+  const tabs = role === "SUPERADMIN" ? superAdminTabs : adminTabs;
 
   return (
     <nav className="glass-panel rounded-b-2xl shadow-sm sticky top-0 z-40">

@@ -7,12 +7,14 @@ interface StoredAuth {
   token: string;
   role: Role;
   name: string;
+  id: string;
 }
 
 interface AuthContextValue {
   token: string | null;
   role: Role | null;
   name: string | null;
+  userId: string | null;
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token: auth?.token ?? null,
     role: auth?.role ?? null,
     name: auth?.name ?? null,
+    userId: auth?.id ?? null,
     login,
     logout,
   };
