@@ -128,18 +128,18 @@ export function AdminDashboardPage() {
         {/* Hero Section */}
         <div className="bg-gray-900 rounded-3xl p-8 sm:p-12 text-white flat-shadow flex flex-col items-center justify-center text-center relative overflow-hidden">
           <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold mb-4 relative z-10 tracking-tight">Ready to Scan?</h1>
+          <h1 className="text-3xl sm:text-5xl font-extrabold mb-4 relative z-10 tracking-tight">Live Order Board</h1>
           <p className="text-gray-400 mb-8 max-w-md relative z-10 text-lg font-medium">
-            Scan student QR codes to deliver orders quickly and securely.
+            Track incoming orders and manage kitchen status in real time.
           </p>
           <Link
-            to="/admin/scan"
+            to="/admin/board"
             className="relative z-10 bg-white text-gray-900 hover:bg-gray-100 font-bold text-xl px-12 py-4 rounded-full flat-shadow transition-all hover-scale flex items-center gap-3 focus:outline-none focus:ring-4 focus:ring-white/30"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
-            OPEN SCANNER
+            OPEN ORDER BOARD
           </Link>
         </div>
 

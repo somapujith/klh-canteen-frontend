@@ -12,7 +12,7 @@ const OrderQrPage = lazy(() => import("./pages/student/OrderQrPage").then(module
 const OrderHistoryPage = lazy(() => import("./pages/student/OrderHistoryPage").then(module => ({ default: module.OrderHistoryPage })));
 const AdminMenuPage = lazy(() => import("./pages/admin/AdminMenuPage").then(module => ({ default: module.AdminMenuPage })));
 const AdminStudentsPage = lazy(() => import("./pages/admin/AdminStudentsPage").then(module => ({ default: module.AdminStudentsPage })));
-const AdminScanPage = lazy(() => import("./pages/admin/AdminScanPage").then(module => ({ default: module.AdminScanPage })));
+const AdminOrderBoardPage = lazy(() => import("./pages/admin/AdminOrderBoardPage").then(module => ({ default: module.AdminOrderBoardPage })));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage").then(module => ({ default: module.AdminDashboardPage })));
 const AdminLogsPage = lazy(() => import("./pages/admin/AdminLogsPage").then(module => ({ default: module.AdminLogsPage })));
 const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage").then(module => ({ default: module.AdminPaymentsPage })));
@@ -44,7 +44,7 @@ export default function App() {
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/inventory" element={<AdminMenuPage />} />
             <Route path="/admin/students" element={<AdminStudentsPage />} />
-            <Route path="/admin/scan" element={<AdminScanPage />} />
+            <Route path="/admin/board" element={<AdminOrderBoardPage />} />
             <Route path="/admin/logs" element={<AdminLogsPage />} />
             <Route path="/admin/payments" element={<AdminPaymentsPage />} />
           </Route>

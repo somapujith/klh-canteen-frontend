@@ -8,7 +8,7 @@ const tabs = [
   { to: "/admin/students", label: "Students" },
   { to: "/admin/logs", label: "Logs" },
   { to: "/admin/payments", label: "Payments" },
-  { to: "/admin/scan", label: "SCAN" },
+  { to: "/admin/board", label: "ORDERS" },
 ];
 
 export function AdminNav() {
@@ -27,7 +27,7 @@ export function AdminNav() {
       </div>
       <div className="flex gap-2 px-4 sm:px-6 pb-3 pt-1 overflow-x-auto whitespace-nowrap items-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {tabs.map((tab) => {
-          const isScan = tab.label === "SCAN";
+          const isScan = tab.label === "ORDERS";
           return (
             <NavLink
               key={tab.to}
