@@ -17,11 +17,13 @@ const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage")
 const AdminLogsPage = lazy(() => import("./pages/admin/AdminLogsPage").then(module => ({ default: module.AdminLogsPage })));
 const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage").then(module => ({ default: module.AdminPaymentsPage })));
 const SuperAdminDashboardPage = lazy(() => import("./pages/admin/SuperAdminDashboardPage").then(module => ({ default: module.SuperAdminDashboardPage })));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage").then(module => ({ default: module.AdminUsersPage })));
+const AdminAuditLogPage = lazy(() => import("./pages/admin/AdminAuditLogPage").then(module => ({ default: module.AdminAuditLogPage })));
 
 function RoleRedirect() {
   const { token, role } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
-  return <Navigate to={role === "SUPERADMIN" ? "/superadmin" : role === "ADMIN" ? "/admin" : "/student"} replace />;
+  return <Navigate to={role === "SUPERADMIN" ? "/admin" : role === "ADMIN" ? "/admin" : "/student"} replace />;
 }
 
 export default function App() {
@@ -49,8 +51,11 @@ export default function App() {
             <Route path="/admin/payments" element={<AdminPaymentsPage />} />
           </Route>
 
-          <Route element={<ProtectedRoute role="SUPERADMIN" />}>
-            <Route path="/superadmin" element={<SuperAdminDashboardPage />} />
+          <Route element={<ProtectedRoute role="SUPERADMIN" allowSuperAdmin={false} />}>
+            <Route path="/superadmin" element={<Navigate to="/admin" replace />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/system" element={<SuperAdminDashboardPage />} />
+            <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

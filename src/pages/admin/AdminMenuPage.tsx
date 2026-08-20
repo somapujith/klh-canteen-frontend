@@ -3,22 +3,7 @@ import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
 import { useSSE } from "../../hooks/useSSE";
-
-interface MenuItem {
-  id: string;
-  name: string;
-  imageUrl: string;
-  price: string;
-  stockQty: number;
-  categoryId: string;
-  isAvailable: boolean;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  items: MenuItem[];
-}
+import type { MenuItem, Category } from "../../types/admin";
 
 export function AdminMenuPage() {
   const { token } = useAuth();

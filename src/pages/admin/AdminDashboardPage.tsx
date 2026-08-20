@@ -5,13 +5,14 @@ import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
 import { generatePDF } from "../../utils/pdfExport";
 import { useSSE } from "../../hooks/useSSE";
+import type { AdminOrder, Category, MenuItem } from "../../types/admin";
 
 export function AdminDashboardPage() {
   const { token } = useAuth();
   const [stats, setStats] = useState({ totalOrdersToday: 0, totalRevenueToday: "0.00" });
   const [isExporting, setIsExporting] = useState(false);
   const [loadingStats, setLoadingStats] = useState(true);
-  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<MenuItem[]>([]);
 
   function loadDashboardData() {
     apiClient.get<typeof stats>("/admin/orders/stats", token ?? undefined)
@@ -19,10 +20,10 @@ export function AdminDashboardPage() {
       .catch(console.error)
       .finally(() => setLoadingStats(false));
 
-    apiClient.get<{ categories: any[] }>("/menu").then((data) => {
-      const items: any[] = [];
+    apiClient.get<{ categories: Category[] }>("/menu").then((data) => {
+      const items: MenuItem[] = [];
       data.categories.forEach((cat) => {
-        cat.items.forEach((item: any) => {
+        cat.items.forEach((item) => {
           if (item.stockQty < 10) {
             items.push(item);
           }
@@ -43,10 +44,10 @@ export function AdminDashboardPage() {
   async function exportInventory() {
     setIsExporting(true);
     try {
-      const { categories } = await apiClient.get<{ categories: any[] }>("/menu");
-      const rows: any[][] = [];
+      const { categories } = await apiClient.get<{ categories: Category[] }>("/menu");
+      const rows: string[][] = [];
       categories.forEach((cat) => {
-        cat.items.forEach((item: any) => {
+        cat.items.forEach((item) => {
           rows.push([
             cat.name,
             item.name,
@@ -67,13 +68,13 @@ export function AdminDashboardPage() {
   async function exportSales() {
     setIsExporting(true);
     try {
-      const orders = await apiClient.get<any[]>("/admin/orders", token ?? undefined);
-      
+      const orders = await apiClient.get<AdminOrder[]>("/admin/orders", token ?? undefined);
+
       const salesMap = new Map<string, { qty: number, revenue: number, name: string }>();
-      
+
       orders.forEach(order => {
         if (order.status === "DELIVERED") {
-          order.items.forEach((item: any) => {
+          order.items.forEach((item) => {
             const current = salesMap.get(item.menuItem.id) || { qty: 0, revenue: 0, name: item.menuItem.name };
             current.qty += item.quantity;
             current.revenue += item.quantity * Number(item.priceAtOrder);
@@ -101,8 +102,8 @@ export function AdminDashboardPage() {
   async function exportLogs() {
     setIsExporting(true);
     try {
-      const orders = await apiClient.get<any[]>("/admin/orders", token ?? undefined);
-      
+      const orders = await apiClient.get<AdminOrder[]>("/admin/orders", token ?? undefined);
+
       const rows = orders.map(order => [
         order.id.slice(0, 8).toUpperCase(),
         new Date(order.createdAt).toLocaleString(),
