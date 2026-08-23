@@ -14,6 +14,7 @@ const adminTabs = [
 const superAdminTabs = [
   ...adminTabs,
   { to: "/admin/users", label: "Users" },
+  { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/system", label: "System" },
   { to: "/admin/audit-log", label: "Audit Log" },
 ];

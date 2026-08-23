@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
+import type { Kitchen } from "../types/admin";
 
 export interface CartLine {
   menuItemId: string;
@@ -6,6 +7,8 @@ export interface CartLine {
   price: number;
   qty: number;
   stockQty: number;
+  /** Which kitchen fulfils this line. Drives which collection windows are offered. */
+  kitchen?: Kitchen;
 }
 
 interface CartContextValue {

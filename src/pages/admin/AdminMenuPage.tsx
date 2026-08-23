@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
-import { useSSE } from "../../hooks/useSSE";
+import { useSSE, type StockDelta } from "../../hooks/useSSE";
 import type { MenuItem, Category } from "../../types/admin";
+import { applyStockDelta } from "../../lib/menu";
 
 export function AdminMenuPage() {
   const { token } = useAuth();
@@ -14,16 +15,24 @@ export function AdminMenuPage() {
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
-  function loadMenu() {
-    apiClient.get<{ categories: Category[] }>("/menu").then((data) => setCategories(data.categories));
-  }
+  const loadMenu = useCallback(() => {
+    return apiClient.get<{ categories: Category[] }>("/menu").then((data) => setCategories(data.categories));
+  }, []);
 
-  useEffect(loadMenu, []);
+  useEffect(() => {
+    loadMenu();
+  }, [loadMenu]);
 
-  useSSE(["MENU_UPDATE"], (event) => {
-    if (event.type === "MENU_UPDATE") {
-      loadMenu();
-    }
+  // STOCK deltas carry an absolute level — patch the row rather than refetching the whole menu.
+  useSSE(["MENU_UPDATE"], {
+    onDelta: (delta) => {
+      if (delta.kind === "STOCK") {
+        setCategories((prev) => applyStockDelta(prev, delta as StockDelta));
+      } else {
+        loadMenu();
+      }
+    },
+    onResync: () => loadMenu(),
   });
 
   async function handleAddCategory(e: FormEvent) {

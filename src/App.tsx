@@ -19,6 +19,13 @@ const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage").t
 const SuperAdminDashboardPage = lazy(() => import("./pages/admin/SuperAdminDashboardPage").then(module => ({ default: module.SuperAdminDashboardPage })));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage").then(module => ({ default: module.AdminUsersPage })));
 const AdminAuditLogPage = lazy(() => import("./pages/admin/AdminAuditLogPage").then(module => ({ default: module.AdminAuditLogPage })));
+const AdminCohortsPage = lazy(() => import("./pages/admin/AdminCohortsPage").then(module => ({ default: module.AdminCohortsPage })));
+
+// Walk-up guest flow — public, no ProtectedRoute. Reached by scanning the printed QR at the counter.
+const GuestMenuPage = lazy(() => import("./pages/guest/GuestMenuPage").then(module => ({ default: module.GuestMenuPage })));
+const GuestCheckoutPage = lazy(() => import("./pages/guest/GuestCheckoutPage").then(module => ({ default: module.GuestCheckoutPage })));
+const GuestOrderStatusPage = lazy(() => import("./pages/guest/GuestOrderStatusPage").then(module => ({ default: module.GuestOrderStatusPage })));
+const GuestOrdersPage = lazy(() => import("./pages/guest/GuestOrdersPage").then(module => ({ default: module.GuestOrdersPage })));
 
 function RoleRedirect() {
   const { token, role } = useAuth();
@@ -34,6 +41,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoleRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Public counter routes — deliberately outside every ProtectedRoute. */}
+          <Route path="/g" element={<GuestMenuPage />} />
+          <Route path="/g/checkout" element={<GuestCheckoutPage />} />
+          <Route path="/g/orders" element={<GuestOrdersPage />} />
+          <Route path="/g/order/:ids" element={<GuestOrderStatusPage />} />
+          <Route path="/guest" element={<Navigate to="/g" replace />} />
+          <Route path="/guest/*" element={<Navigate to="/g" replace />} />
 
           <Route element={<ProtectedRoute role="STUDENT" />}>
             <Route path="/student" element={<StudentMenuPage />} />
@@ -54,6 +69,7 @@ export default function App() {
           <Route element={<ProtectedRoute role="SUPERADMIN" allowSuperAdmin={false} />}>
             <Route path="/superadmin" element={<Navigate to="/admin" replace />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/cohorts" element={<AdminCohortsPage />} />
             <Route path="/admin/system" element={<SuperAdminDashboardPage />} />
             <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
           </Route>

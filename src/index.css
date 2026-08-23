@@ -40,9 +40,45 @@ body {
   animation: fadeIn 0.3s ease-out forwards;
 }
 
+/* The end state must be `transform: none`, not translateY(0): with
+   animation-fill-mode: forwards a retained transform turns the animated element
+   into the containing block for every `position: fixed` descendant, which pins
+   the floating cart to the bottom of the page instead of the viewport. */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sheetUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.sheet-up {
+  animation: sheetUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes countPop {
+  0% { transform: none; }
+  40% { transform: scale(1.18); }
+  100% { transform: none; }
+}
+
+.count-pop {
+  animation: countPop 0.28s ease-out;
+}
+
+/* Keeps bottom-anchored UI clear of the iOS home indicator / Android gesture bar. */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .sheet-up,
+  .count-pop {
+    animation: none;
+  }
 }
 
 .glass-panel {

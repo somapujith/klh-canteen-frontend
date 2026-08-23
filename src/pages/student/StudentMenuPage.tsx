@@ -1,52 +1,43 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useCart } from "../../context/CartContext";
 import { Navbar } from "../../components/Navbar";
 import { SkeletonCard } from "../../components/LoadingState";
-import { useSSE } from "../../hooks/useSSE";
-
-interface MenuItem {
-  id: string;
-  name: string;
-  imageUrl: string;
-  price: string;
-  stockQty: number;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  items: MenuItem[];
-}
+import { useSSE, type StockDelta } from "../../hooks/useSSE";
+import { applyStockDelta, type MenuCategory } from "../../lib/menu";
 
 export function StudentMenuPage() {
   const { items: cartItems, addItem, total } = useCart();
   const navigate = useNavigate();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchMenu = () => {
-    apiClient
-      .get<{ categories: Category[] }>("/menu")
+  const fetchMenu = useCallback(() => {
+    return apiClient
+      .get<{ categories: MenuCategory[] }>("/menu")
       .then((data) => {
         setCategories(data.categories);
-        if (!activeTab && data.categories.length > 0) {
-          setActiveTab(data.categories[0].id);
-        }
+        setActiveTab((current) => current ?? data.categories[0]?.id ?? null);
       })
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     fetchMenu();
-  }, []);
+  }, [fetchMenu]);
 
-  useSSE(["MENU_UPDATE"], (event) => {
-    if (event.type === "MENU_UPDATE") {
-      fetchMenu();
-    }
+  // Stock levels arrive as absolute values, so patch in place instead of refetching the menu.
+  useSSE(["MENU_UPDATE"], {
+    onDelta: (delta) => {
+      if (delta.kind === "STOCK") {
+        setCategories((prev) => applyStockDelta(prev, delta as StockDelta));
+      } else {
+        fetchMenu();
+      }
+    },
+    onResync: () => fetchMenu(),
   });
 
   const activeCategory = categories.find((c) => c.id === activeTab);
@@ -119,7 +110,14 @@ export function StudentMenuPage() {
                 <button
                   disabled={item.stockQty === 0}
                   onClick={() =>
-                    addItem({ menuItemId: item.id, name: item.name, price: Number(item.price), qty: 1, stockQty: item.stockQty })
+                    addItem({
+                      menuItemId: item.id,
+                      name: item.name,
+                      price: Number(item.price),
+                      qty: 1,
+                      stockQty: item.stockQty,
+                      kitchen: activeCategory?.kitchen,
+                    })
                   }
                   className="mt-2 w-full rounded-xl bg-gray-100 text-brand-700 font-medium text-sm py-2 hover:bg-brand-50 hover:text-brand-800 transition-colors disabled:opacity-50 disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500/30 flex justify-center items-center gap-1 active:scale-95"
                 >

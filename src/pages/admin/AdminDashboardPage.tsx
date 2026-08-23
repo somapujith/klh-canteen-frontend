@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
 import { generatePDF } from "../../utils/pdfExport";
-import { useSSE } from "../../hooks/useSSE";
+import { useSSE, type StockDelta } from "../../hooks/useSSE";
 import type { AdminOrder, Category, MenuItem } from "../../types/admin";
 
 export function AdminDashboardPage() {
@@ -14,13 +14,15 @@ export function AdminDashboardPage() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [lowStockItems, setLowStockItems] = useState<MenuItem[]>([]);
 
-  function loadDashboardData() {
-    apiClient.get<typeof stats>("/admin/orders/stats", token ?? undefined)
+  const loadStats = useCallback(() => {
+    return apiClient.get<typeof stats>("/admin/orders/stats", token ?? undefined)
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoadingStats(false));
+  }, [token]);
 
-    apiClient.get<{ categories: Category[] }>("/menu").then((data) => {
+  const loadLowStock = useCallback(() => {
+    return apiClient.get<{ categories: Category[] }>("/menu").then((data) => {
       const items: MenuItem[] = [];
       data.categories.forEach((cat) => {
         cat.items.forEach((item) => {
@@ -31,14 +33,47 @@ export function AdminDashboardPage() {
       });
       setLowStockItems(items);
     }).catch(console.error);
-  }
+  }, []);
+
+  const loadDashboardData = useCallback(() => {
+    loadStats();
+    loadLowStock();
+  }, [loadStats, loadLowStock]);
 
   useEffect(() => {
     loadDashboardData();
-  }, [token]);
+  }, [loadDashboardData]);
 
-  useSSE(["MENU_UPDATE", "ORDER_UPDATE"], () => {
-    loadDashboardData();
+  // A new order only moves the today totals; a stock change only moves the low-stock
+  // list. Refetch the one endpoint that actually changed instead of the whole dashboard.
+  useSSE(["MENU_UPDATE", "ORDER_BOARD_UPDATE"], {
+    onDelta: (delta) => {
+      switch (delta.kind) {
+        case "STOCK": {
+          const { menuItemId, stockQty, isAvailable } = delta as StockDelta;
+          setLowStockItems((prev) => {
+            const existing = prev.find((i) => i.id === menuItemId);
+            if (stockQty >= 10) return existing ? prev.filter((i) => i.id !== menuItemId) : prev;
+            // Newly low and not on the list yet — pull the menu once to get its details.
+            if (!existing) {
+              loadLowStock();
+              return prev;
+            }
+            return prev.map((i) => (i.id === menuItemId ? { ...i, stockQty, isAvailable } : i));
+          });
+          break;
+        }
+        case "ORDER_CREATED":
+        case "ORDER_STATUS":
+          loadStats();
+          break;
+        case "ORDER_SEEN":
+          break;
+        default:
+          loadDashboardData();
+      }
+    },
+    onResync: () => loadDashboardData(),
   });
 
   async function exportInventory() {

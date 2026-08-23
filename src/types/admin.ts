@@ -9,6 +9,87 @@ export interface AdminUser {
   name: string;
   kitchen: Kitchen | null;
   createdAt: string;
+  /** Soft-deactivation flag. Inactive accounts keep their order history but cannot log in. */
+  isActive: boolean;
+  mustChangePassword: boolean;
+  /** Tokens issued before this instant are rejected — set when an account is deactivated. */
+  tokensValidFrom: string | null;
+}
+
+/** `?format=envelope` shape for cursor-paginated superadmin list endpoints. */
+export interface Paginated<T> {
+  data: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  total: number;
+}
+
+/** Why an account was left untouched by a (de)activation call. */
+export type ActivationSkipReason = "protected_account" | "self" | "not_found";
+
+export interface ActivationSkip {
+  id?: string;
+  email?: string;
+  reason: ActivationSkipReason | (string & {});
+}
+
+export interface ActivationChangedUser {
+  id: string;
+  email: string;
+  rollNumber: string | null;
+  name: string;
+}
+
+/** Response of every deactivate/reactivate endpoint, single and bulk. */
+export interface ActivationResult {
+  active: boolean;
+  requested: number;
+  changed: number;
+  tokensValidFrom: string | null;
+  changedUsers?: ActivationChangedUser[];
+  skipped: ActivationSkip[];
+}
+
+/** One intake, derived from the leading digits of student roll numbers. */
+export interface Cohort {
+  intake: string;
+  total: number;
+  active: number;
+  inactive: number;
+  rollNumberMin: string;
+  rollNumberMax: string;
+}
+
+export interface CohortSampleUser {
+  id: string;
+  name: string;
+  rollNumber: string;
+  email: string;
+}
+
+/** Protected accounts are reported by identity, not id — they are never touched by a cohort promote. */
+export interface CohortProtectedSkip {
+  rollNumber: string | null;
+  email: string;
+}
+
+export interface CohortPreview {
+  prefix: string;
+  dryRun: boolean;
+  matched: number;
+  wouldDeactivate: number;
+  alreadyInactive: number;
+  protectedSkipped: CohortProtectedSkip[];
+  rollNumberRange: { first: string; last: string } | null;
+  sample: CohortSampleUser[];
+  sampleTruncated: boolean;
+}
+
+export interface CohortPromoteResult extends CohortPreview {
+  applied: boolean;
+  changed: number;
+  tokensValidFrom: string | null;
+  changedUsers?: ActivationChangedUser[];
 }
 
 export interface AuditLogEntry {

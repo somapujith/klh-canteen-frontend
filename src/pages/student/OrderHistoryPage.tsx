@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
-import { useSSE } from "../../hooks/useSSE";
+import { useSSE, type OrderStatusDelta } from "../../hooks/useSSE";
 
 interface OrderSummary {
   id: string;
@@ -18,19 +18,25 @@ export function OrderHistoryPage() {
   const { token } = useAuth();
   const [orders, setOrders] = useState<OrderSummary[]>([]);
 
-  const fetchOrders = () => {
-    apiClient.get<OrderSummary[]>("/orders/my", token ?? undefined).then(setOrders);
-  };
+  const fetchOrders = useCallback(() => {
+    return apiClient.get<OrderSummary[]>("/orders/my", token ?? undefined).then(setOrders);
+  }, [token]);
 
   useEffect(() => {
     fetchOrders();
-  }, [token]);
+  }, [fetchOrders]);
 
-  useSSE(["ORDER_UPDATE"], (event) => {
-    if (event.type === "ORDER_UPDATE") {
-      const { orderId, status } = event.data;
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    }
+  // Status changes arrive fully described, so patch the row instead of refetching the list.
+  useSSE(["ORDER_UPDATE"], {
+    onDelta: (delta) => {
+      if (delta.kind === "ORDER_STATUS") {
+        const { orderId, status } = delta as OrderStatusDelta;
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+      } else {
+        fetchOrders();
+      }
+    },
+    onResync: () => fetchOrders(),
   });
 
   return (
