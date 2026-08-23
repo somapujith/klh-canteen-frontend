@@ -15,7 +15,10 @@ interface AuthContextValue {
   role: Role | null;
   name: string | null;
   userId: string | null;
-  login: (identifier: string, password: string) => Promise<void>;
+  /** Resolves with the freshly authenticated session so callers can route on it
+   * immediately — reading `role` off the context in the same tick returns the
+   * pre-login value, because this component has not re-rendered yet. */
+  login: (identifier: string, password: string) => Promise<StoredAuth>;
   logout: () => void;
 }
 
@@ -40,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await apiClient.post<StoredAuth>("/auth/login", { identifier, password });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
     setAuth(result);
+    return result;
   }, []);
 
   const logout = useCallback(() => {

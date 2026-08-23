@@ -4,7 +4,14 @@ import { Logo } from "./Logo";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
-export function Navbar({ title }: { title: string }) {
+interface NavbarProps {
+  title: string;
+  /** Item count for the header cart button. Omit to hide the button entirely. */
+  cartCount?: number;
+  onCartClick?: () => void;
+}
+
+export function Navbar({ title, cartCount, onCartClick }: NavbarProps) {
   const { name, logout } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -38,6 +45,27 @@ export function Navbar({ title }: { title: string }) {
         <span className="font-semibold text-gray-800 tracking-tight">{title}</span>
       </div>
       
+      <div className="flex items-center gap-1 sm:gap-2">
+      {onCartClick && (cartCount ?? 0) > 0 && (
+        <button
+          onClick={onCartClick}
+          aria-label={`Cart, ${cartCount ?? 0} item${cartCount === 1 ? "" : "s"}`}
+          className="relative p-2 rounded-full text-gray-600 hover:bg-surface-muted hover:text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+        >
+          <svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          {(cartCount ?? 0) > 0 && (
+            <span
+              key={cartCount}
+              className="count-pop absolute -top-0.5 -right-0.5 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-brand-700 text-white text-[0.7rem] font-bold flex items-center justify-center shadow-sm tabular-nums"
+            >
+              {cartCount}
+            </span>
+          )}
+        </button>
+      )}
+
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setMenuOpen(!menuOpen)}
@@ -49,13 +77,13 @@ export function Navbar({ title }: { title: string }) {
           <span className="text-sm font-medium text-gray-700 hidden sm:inline-block max-w-[120px] truncate">
             {name}
           </span>
-          <svg className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl flat-shadow border border-gray-100 py-2 overflow-hidden fade-in">
+          <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl flat-shadow border border-gray-100 py-2 overflow-hidden rise-in">
             <div className="px-4 py-3 border-b border-gray-50 sm:hidden bg-gray-50/50">
               <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
             </div>
@@ -85,6 +113,7 @@ export function Navbar({ title }: { title: string }) {
             </button>
           </div>
         )}
+      </div>
       </div>
     </nav>
   );

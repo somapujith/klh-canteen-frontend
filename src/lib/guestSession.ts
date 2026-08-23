@@ -117,18 +117,12 @@ async function guestRequest<T>(method: string, path: string, body?: unknown): Pr
 export interface PlaceGuestOrderInput {
   guestName?: string;
   guestPhone?: string;
-  collectionAt?: string;
   items: { menuItemId: string; qty: number }[];
 }
 
 export const guestApi = {
   listOrders: () => guestRequest<GuestOrder[]>("GET", "/guest/orders"),
   getOrder: (id: string) => guestRequest<GuestOrder>("GET", `/guest/orders/${id}`),
-  collectionWindows: (kitchen: Kitchen) =>
-    guestRequest<import("./collectionWindows").CollectionWindow[]>(
-      "GET",
-      `/guest/collection-windows?kitchen=${kitchen}`
-    ),
   /** Returns one order per kitchen involved, mirroring POST /orders for students. */
   placeOrder: (input: PlaceGuestOrderInput) => guestRequest<GuestOrder[]>("POST", "/guest/orders", input),
 };

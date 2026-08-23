@@ -1,6 +1,6 @@
 export function LoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 fade-in">
+    <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 rise-in">
       <div className="w-12 h-12 rounded-full border-4 border-gray-200 border-t-brand-500 animate-spin"></div>
       <p className="text-gray-500 font-medium">Loading...</p>
     </div>

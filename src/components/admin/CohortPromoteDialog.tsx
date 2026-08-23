@@ -22,10 +22,9 @@ export function CohortPromoteDialog({ preview, busy, error, onConfirm, onCancel 
   const matches = typed.trim() === preview.prefix;
   const nothingToDo = preview.wouldDeactivate === 0;
 
-  // Portalled to <body> deliberately: the admin shells carry `.fade-in`, whose
-  // `animation-fill-mode: forwards` leaves a transform on the element. A transformed
-  // ancestor becomes the containing block for `position: fixed`, which would anchor
-  // this overlay to the whole page height instead of the viewport.
+  // Portalled to <body> deliberately: it keeps this overlay out of the admin shell's
+  // stacking contexts and `overflow-hidden` ancestors, either of which would clip it
+  // or bury it behind the page chrome.
   return createPortal(
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={busy ? undefined : onCancel}>
       <div

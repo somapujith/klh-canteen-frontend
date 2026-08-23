@@ -1,14 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { useToast } from "../../context/ToastContext";
 import { Navbar } from "../../components/Navbar";
-import { CollectionWindowPicker } from "../../components/CollectionWindowPicker";
-import { isCollectionWindowError, orderErrorMessage, type CollectionWindow } from "../../lib/collectionWindows";
-import { kitchensInCart } from "../../lib/menu";
-import type { Kitchen } from "../../types/admin";
+import { orderErrorMessage } from "../../lib/collectionWindows";
 
 interface OrderResponse {
   id: string;
@@ -21,24 +18,6 @@ export function CheckoutPage() {
   const { showToast } = useToast();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [collectionAt, setCollectionAt] = useState<string | null>(null);
-  const [windowRefresh, setWindowRefresh] = useState(0);
-
-  // Cart lines carry the kitchen of the category they were added from. If that
-  // hint is ever missing we show no slots rather than offering windows from a
-  // kitchen the order won't go to — the order still goes through as ASAP.
-  const kitchenKey = kitchensInCart(items).join(",");
-
-  const fetchWindows = useCallback(
-    (kitchen: Kitchen) =>
-      apiClient.get<CollectionWindow[]>(`/orders/collection-windows?kitchen=${kitchen}`, token ?? undefined),
-    [token]
-  );
-
-  const pickerKitchens = useMemo(
-    () => (kitchenKey ? (kitchenKey.split(",") as Kitchen[]) : []),
-    [kitchenKey]
-  );
 
   async function handlePay() {
     setPlacing(true);
@@ -46,10 +25,7 @@ export function CheckoutPage() {
     try {
       const orders = await apiClient.post<OrderResponse[]>(
         "/orders",
-        {
-          items: items.map((i) => ({ menuItemId: i.menuItemId, qty: i.qty })),
-          ...(collectionAt ? { collectionAt } : {}),
-        },
+        { items: items.map((i) => ({ menuItemId: i.menuItemId, qty: i.qty })) },
         token ?? undefined
       );
       clear();
@@ -57,11 +33,6 @@ export function CheckoutPage() {
       navigate(`/student/order/${orders.map((o) => o.id).join(",")}`, { replace: true });
     } catch (err) {
       setError(orderErrorMessage(err, "Payment failed"));
-      // A rejected slot means our capacity view is stale — pull fresh numbers.
-      if (isCollectionWindowError(err)) {
-        setCollectionAt(null);
-        setWindowRefresh((n) => n + 1);
-      }
     } finally {
       setPlacing(false);
     }
@@ -71,7 +42,17 @@ export function CheckoutPage() {
     <div className="min-h-screen bg-surface-muted">
       <Navbar title="Checkout" />
       <div className="p-4 space-y-3 max-w-lg mx-auto">
-        {items.length === 0 && <p className="text-center text-gray-500 py-12">Your cart is empty.</p>}
+        {items.length === 0 && (
+          <div className="text-center py-12 space-y-4">
+            <p className="text-gray-500">Your cart is empty.</p>
+            <button
+              onClick={() => navigate("/student")}
+              className="rounded-xl bg-brand-600 text-white px-5 py-2.5 font-semibold hover:bg-brand-700 transition"
+            >
+              Browse the menu
+            </button>
+          </div>
+        )}
         {items.map((line) => (
           <div
             key={line.menuItemId}
@@ -99,15 +80,6 @@ export function CheckoutPage() {
 
         {items.length > 0 && (
           <>
-            <CollectionWindowPicker
-              kitchens={pickerKitchens}
-              fetchWindows={fetchWindows}
-              value={collectionAt}
-              onChange={setCollectionAt}
-              disabled={placing}
-              refreshKey={windowRefresh}
-            />
-
             <div className="bg-surface rounded-2xl flat-shadow p-4 space-y-3">
               <div className="flex justify-between font-semibold text-brand-900">
                 <span>Total</span>

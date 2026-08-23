@@ -1,13 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { guestApi } from "../../lib/guestSession";
-import { isCollectionWindowError, orderErrorMessage } from "../../lib/collectionWindows";
-import { kitchensInCart } from "../../lib/menu";
+import { orderErrorMessage } from "../../lib/collectionWindows";
 import { GuestNav } from "../../components/GuestNav";
-import { CollectionWindowPicker } from "../../components/CollectionWindowPicker";
 import { useGuestCart } from "../../hooks/useGuestCart";
 import { useToast } from "../../context/ToastContext";
-import type { Kitchen } from "../../types/admin";
 
 export function GuestCheckoutPage() {
   const { items, updateQty, removeItem, total, clear } = useGuestCart();
@@ -16,19 +13,8 @@ export function GuestCheckoutPage() {
 
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
-  const [collectionAt, setCollectionAt] = useState<string | null>(null);
-  const [windowRefresh, setWindowRefresh] = useState(0);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Only offer slots for the kitchens this cart actually goes to (see CheckoutPage).
-  const kitchenKey = kitchensInCart(items).join(",");
-  const pickerKitchens = useMemo(
-    () => (kitchenKey ? (kitchenKey.split(",") as Kitchen[]) : []),
-    [kitchenKey]
-  );
-
-  const fetchWindows = useCallback((kitchen: Kitchen) => guestApi.collectionWindows(kitchen), []);
 
   async function handlePay() {
     setPlacing(true);
@@ -38,17 +24,12 @@ export function GuestCheckoutPage() {
         items: items.map((i) => ({ menuItemId: i.menuItemId, qty: i.qty })),
         ...(guestName.trim() ? { guestName: guestName.trim() } : {}),
         ...(guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}),
-        ...(collectionAt ? { collectionAt } : {}),
       });
       clear();
       showToast("Order placed! Show your token at the counter.", "success");
       navigate(`/g/order/${orders.map((o) => o.id).join(",")}`, { replace: true });
     } catch (err) {
       setError(orderErrorMessage(err, "Could not place your order"));
-      if (isCollectionWindowError(err)) {
-        setCollectionAt(null);
-        setWindowRefresh((n) => n + 1);
-      }
     } finally {
       setPlacing(false);
     }
@@ -133,15 +114,6 @@ export function GuestCheckoutPage() {
                 </label>
               </div>
             </div>
-
-            <CollectionWindowPicker
-              kitchens={pickerKitchens}
-              fetchWindows={fetchWindows}
-              value={collectionAt}
-              onChange={setCollectionAt}
-              disabled={placing}
-              refreshKey={windowRefresh}
-            />
 
             <div className="bg-surface rounded-2xl flat-shadow p-4 space-y-3">
               <div className="flex justify-between font-semibold text-brand-900">

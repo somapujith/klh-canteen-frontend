@@ -43,12 +43,3 @@ export function applyStockDelta<T extends MenuCategory>(categories: T[], delta: 
 
   return changed ? next : categories;
 }
-
-/** Distinct kitchens involved in a set of cart lines, for the collection-window picker. */
-export function kitchensInCart(lines: { kitchen?: Kitchen }[]): Kitchen[] {
-  const seen = new Set<Kitchen>();
-  for (const line of lines) {
-    if (line.kitchen) seen.add(line.kitchen);
-  }
-  return [...seen];
-}

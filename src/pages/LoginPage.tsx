@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 
 export function LoginPage() {
-  const { login, role } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -16,8 +16,11 @@ export function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(identifier, password);
-      navigate(role === "ADMIN" ? "/admin" : "/student", { replace: true });
+      // Route on the role the server just returned. Reading `role` from the
+      // auth context here would still hold the pre-login value, which sent
+      // every admin to the student route and bounced them back to /login.
+      const session = await login(identifier, password);
+      navigate(session.role === "STUDENT" ? "/student" : "/admin", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

@@ -17,6 +17,35 @@
   --radius-2xl: 1.5rem;
 }
 
+/* ===========================================================================
+   OVERLAY STACKING ORDER — single source of truth.
+
+   Every fixed/sticky overlay in the app draws its z-index from this table.
+   Before adding a new overlay, add a row here first; do not invent a value at
+   the call site. Several of these are bottom-anchored and used to collide at a
+   shared z-50, which made the offline banner invisible and let toasts sit on
+   top of the cart's Checkout button.
+
+     z-30  Sticky category rail on the menu pages.
+     z-40  Sticky navigation bars (Navbar, GuestNav, AdminNav).
+     z-45  CartBar scrim that dims the page behind the expanded cart sheet —
+           above the nav, below the cart itself.
+     z-50  CartBar (src/components/CartBar.tsx) and the portalled admin dialogs
+           (ConfirmDialog / UserFormModal / CohortPromoteDialog). These never
+           appear at the same time, so they can share a level.
+     z-60  Toast stack (src/context/ToastContext.tsx). Above the cart so a toast
+           is never hidden by it, and lifted above the cart bar's height on
+           phones (bottom-28) so it never covers the Checkout button. Toasts
+           auto-dismiss, so they must not be the topmost thing on screen.
+     z-70  NetworkStatus offline banner (src/components/NetworkStatus.tsx).
+           Highest, and top-anchored rather than bottom-anchored, because
+           connectivity loss must stay visible over every other overlay —
+           including the cart card that used to cover it on desktop.
+
+   Keep the geometry disjoint too, not just the z-order: the cart owns the
+   bottom-right corner from `sm` up and the full bottom edge on phones.
+   =========================================================================== */
+
 body {
   font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
   background-color: #f9fafb;
@@ -25,28 +54,96 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Micro-animations and flat utilities */
-.hover-scale {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.hover-scale:hover:not(:disabled) {
-  transform: scale(1.02);
-}
-.hover-scale:active:not(:disabled) {
-  transform: scale(0.98);
+/* ---------------------------------------------------------------------------
+   Custom utilities.
+
+   These are declared with `@utility` (not as bare `.class` rules) on purpose.
+   Bare rules land OUTSIDE every cascade layer, and unlayered CSS beats layered
+   CSS unconditionally — so an unlayered `.pb-safe` silently defeated `sm:pb-0`,
+   and an unlayered `.glass-panel` defeated every `border-*` and `bg-*` utility
+   placed next to it. `@utility` emits into Tailwind's `utilities` layer, where
+   ordinary utilities can override these the way anyone would expect.
+   --------------------------------------------------------------------------- */
+
+/* Keeps bottom-anchored UI clear of the iOS home indicator / Android gesture bar. */
+@utility pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
-.fade-in {
+/* Longhand `border-width`/`border-style`/`border-color` rather than the `border`
+   shorthand: the shorthand resets border-color even when a `border-<color>`
+   utility is present, so `glass-panel border-gray-200/60` lost its colour.
+   `background-color` rather than `background` for the same reason — the
+   shorthand would clobber a sibling `bg-*` utility's colour. */
+@utility glass-panel {
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-width: 1px;
+  /* var() indirection is load-bearing: with three plain longhands the minifier
+     re-collapses them into the `border` shorthand, putting the reset back. */
+  border-style: var(--tw-border-style, solid);
+  border-color: rgba(0, 0, 0, 0.05);
+}
+
+@utility flat-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+@utility flat-shadow-hover {
+  transition: box-shadow 0.2s ease-in-out;
+  &:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  }
+}
+
+/* Micro-animations */
+@utility hover-scale {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  &:hover:not(:disabled) {
+    transform: scale(1.02);
+  }
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+/* PAGE-LEVEL ENTRANCE — use this, and only this, on full-page wrappers.
+   Deliberately opacity-only. This animation runs on full-page wrappers with
+   animation-fill-mode: forwards, and any transform in it — even `none`, which
+   Chrome resolves to an identity matrix — makes the wrapper the containing block
+   for every `position: fixed` descendant. That is what pinned the floating cart
+   to the bottom of the document instead of the viewport. Page-level fades must
+   never animate transform; use .rise-in or .sheet-up on small, non-wrapping
+   elements instead. */
+@utility fade-in {
   animation: fadeIn 0.3s ease-out forwards;
 }
 
-/* The end state must be `transform: none`, not translateY(0): with
-   animation-fill-mode: forwards a retained transform turns the animated element
-   into the containing block for every `position: fixed` descendant, which pins
-   the floating cart to the bottom of the page instead of the viewport. */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* SMALL-ELEMENT ENTRANCE — opacity plus a short rise.
+   Only for leaf-ish elements that contain no `position: fixed` descendants:
+   dropdown menus, toasts, banners, inline status cards. It animates `transform`,
+   so an element carrying `.rise-in` becomes the containing block for any fixed
+   child while the animation's fill holds. Never put it on a page wrapper or on
+   anything that renders the CartBar / a fixed overlay inside itself — use
+   `.fade-in` there. */
+@utility rise-in {
+  animation: riseIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Same containing-block caveat as .rise-in: small, non-wrapping elements only. */
+@utility sheet-up {
+  animation: sheetUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes sheetUp {
@@ -54,8 +151,8 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-.sheet-up {
-  animation: sheetUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+@utility count-pop {
+  animation: countPop 0.28s ease-out;
 }
 
 @keyframes countPop {
@@ -64,37 +161,21 @@ body {
   100% { transform: none; }
 }
 
-.count-pop {
-  animation: countPop 0.28s ease-out;
-}
-
-/* Keeps bottom-anchored UI clear of the iOS home indicator / Android gesture bar. */
-.pb-safe {
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-}
-
+/* Intentionally unlayered so it outranks the utilities above — a reduced-motion
+   preference must win no matter what utility order the build produces. */
 @media (prefers-reduced-motion: reduce) {
   .fade-in,
+  .rise-in,
   .sheet-up,
   .count-pop {
     animation: none;
   }
-}
 
-.glass-panel {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.flat-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-}
-
-.flat-shadow-hover {
-  transition: box-shadow 0.2s ease-in-out;
-}
-.flat-shadow-hover:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  /* Covers the Tailwind scale/rotate microinteractions too, not just the keyframes. */
+  .hover-scale,
+  [class*="scale-"],
+  [class*="rotate-"] {
+    transition: none;
+    transform: none;
+  }
 }

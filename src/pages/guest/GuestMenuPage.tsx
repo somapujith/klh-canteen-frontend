@@ -6,14 +6,16 @@ import type { MenuCategory } from "../../lib/menu";
 import { GuestNav } from "../../components/GuestNav";
 import { SkeletonCard } from "../../components/LoadingState";
 import { useGuestCart } from "../../hooks/useGuestCart";
+import { CartBar } from "../../components/CartBar";
 
 /**
  * Public, unauthenticated menu reached by scanning the printed QR at the counter.
  * Mints a guest session on load so every later /guest/* call has a token ready.
  */
 export function GuestMenuPage() {
-  const { items: cartItems, addItem, count, total } = useGuestCart();
+  const { items: cartItems, addItem, updateQty, removeItem, syncStock, total } = useGuestCart();
   const navigate = useNavigate();
+  const [cartOpen, setCartOpen] = useState(false);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,17 @@ export function GuestMenuPage() {
         apiClient.get<{ categories: MenuCategory[] }>("/menu"),
       ]);
       setCategories(menu.categories);
+      // No SSE on the counter flow — this fetch is the only stock reconciliation a
+      // guest cart (restored from sessionStorage) ever gets.
+      syncStock(
+        new Map(
+          menu.categories.flatMap((cat) =>
+            cat.items.map(
+              (item) => [item.id, { price: Number(item.price), name: item.name, stockQty: item.stockQty }] as const
+            )
+          )
+        )
+      );
       setActiveTab((current) => current ?? menu.categories[0]?.id ?? null);
       setError(null);
     } catch (err) {
@@ -35,7 +48,7 @@ export function GuestMenuPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncStock]);
 
   useEffect(() => {
     load();
@@ -44,7 +57,10 @@ export function GuestMenuPage() {
   const activeCategory = categories.find((c) => c.id === activeTab);
 
   return (
-    <div className="min-h-screen bg-surface-muted pb-28 fade-in">
+    <div className="min-h-screen bg-surface-muted pb-28 sm:pb-32 fade-in">
+      {/* Marked inert while the cart sheet is open so nothing behind the backdrop
+          stays focusable — WCAG 2.4.11 (focus not obscured). */}
+      <div inert={cartOpen}>
       <GuestNav title="Order at the counter" />
 
       <div className="px-4 pt-5">
@@ -73,7 +89,7 @@ export function GuestMenuPage() {
         </div>
       )}
 
-      <div className="px-4 pt-4 pb-2 flex gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <div className="mx-auto w-full max-w-[100rem] px-4 pt-4 pb-2 flex gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {loading
           ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-10 w-24 bg-gray-200 rounded-full animate-pulse shrink-0" />
@@ -93,7 +109,7 @@ export function GuestMenuPage() {
             ))}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-4 mt-2">
+      <div className="mx-auto w-full max-w-[100rem] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-4 mt-2">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
         ) : activeCategory?.items.length === 0 ? (
@@ -113,7 +129,7 @@ export function GuestMenuPage() {
                   <img
                     src={item.imageUrl}
                     alt={item.name}
-                    className={`h-32 w-full object-cover transition-transform duration-500 ${
+                    className={`aspect-[4/3] w-full object-cover transition-transform duration-500 ${
                       soldOut ? "opacity-50 grayscale" : "group-hover:scale-105"
                     }`}
                   />
@@ -136,7 +152,7 @@ export function GuestMenuPage() {
                     <p className="text-brand-600 font-bold">₹{item.price}</p>
                     <p
                       className={`text-xs font-medium ${
-                        item.stockQty < 5 && item.stockQty > 0 ? "text-orange-500" : "text-gray-400"
+                        item.stockQty < 5 && item.stockQty > 0 ? "text-orange-500" : "text-gray-500"
                       }`}
                     >
                       {item.stockQty > 0 ? `${item.stockQty} left` : ""}
@@ -168,28 +184,18 @@ export function GuestMenuPage() {
         )}
       </div>
 
-      {cartItems.length > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-80 glass-panel rounded-2xl shadow-xl p-4 flex items-center justify-between z-50 fade-in border border-gray-200/50">
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-0.5">Your Order</p>
-            <div className="flex items-baseline gap-2">
-              <span className="font-bold text-gray-900 text-lg">₹{total.toFixed(2)}</span>
-              <span className="text-sm font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md whitespace-nowrap">
-                {count} item(s)
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate("/g/checkout")}
-            className="rounded-xl bg-brand-600 text-white px-5 py-2.5 font-semibold hover-scale shadow-md shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-brand-500/50 flex items-center gap-2"
-          >
-            Checkout
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </button>
-        </div>
-      )}
+      </div>
+
+      <CartBar
+        lines={cartItems}
+        total={total}
+        onUpdateQty={updateQty}
+        onRemove={removeItem}
+        onCheckout={() => navigate("/g/checkout")}
+        onExpandedChange={setCartOpen}
+        checkoutLabel="Review"
+      />
+
     </div>
   );
 }

@@ -29,20 +29,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {/* Toast Container */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none">
+      <div
+        role="status"
+        aria-live="polite"
+        /* z-60 + lifted above the CartBar on phones, per the overlay stacking
+           table in src/index.css. The cart owns the full bottom edge below `sm`,
+           so a bottom-4 toast landed on its Checkout button and, being
+           pointer-events-auto, swallowed taps for the 3s it was up. */
+        className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] sm:bottom-4 left-1/2 -translate-x-1/2 z-60 flex flex-col gap-2 pointer-events-none"
+      >
         {toasts.map((toast) => (
           <div
             key={toast.id}
             className={`
               pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-lg border text-sm font-medium
-              animate-in slide-in-from-bottom-5 fade-in duration-300
+              rise-in
               ${toast.type === "success" ? "bg-green-50 text-green-900 border-green-200" : ""}
               ${toast.type === "error" ? "bg-red-50 text-red-900 border-red-200" : ""}
               ${toast.type === "info" ? "bg-gray-900 text-white border-gray-800" : ""}
             `}
           >
             {toast.type === "success" && (
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
               </svg>
             )}
