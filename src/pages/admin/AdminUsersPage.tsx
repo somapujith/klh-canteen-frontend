@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
+import { BulkAddStudents } from "../../components/BulkAddStudents";
 import type { AdminUser, Kitchen, Role } from "../../types/admin";
 
 interface FormState {
@@ -151,6 +152,8 @@ export function AdminUsersPage() {
             + Add User
           </button>
         </div>
+
+        <BulkAddStudents token={token} onImported={loadUsers} />
 
         <div className="flex flex-col sm:flex-row gap-3">
           <input

@@ -13,7 +13,7 @@ interface BoardOrder {
   seenByAdmin: boolean;
   totalAmount: string;
   items: { quantity: number; menuItem: { name: string } }[];
-  student: { name: string };
+  student: { name: string; rollNumber: string | null };
 }
 
 interface SelectedOrder extends BoardOrder {
@@ -197,7 +197,12 @@ export function AdminOrderBoardPage() {
                     <h2 className="text-2xl font-black text-gray-900">#{displayNumber(selectedOrder.orderNumber)}</h2>
                     <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">{selectedOrder.status}</span>
                   </div>
-                  <p className="text-gray-500 font-medium mt-1">{selectedOrder.student.name}</p>
+                  <p className="text-gray-500 font-medium mt-1">
+                    {selectedOrder.student.name}
+                    {selectedOrder.student.rollNumber && (
+                      <span className="text-gray-400"> · {selectedOrder.student.rollNumber}</span>
+                    )}
+                  </p>
                 </div>
 
                 {selectedOrder.isLockedByOther && (
