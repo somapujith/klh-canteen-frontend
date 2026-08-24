@@ -78,51 +78,63 @@ export function AdminNav() {
   return (
     <div className="nav-shell">
       <nav className="w-full max-w-6xl nav-notch shadow-sm">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Logo className="h-8 sm:h-9 shrink-0 hover-scale" />
-            <span className="font-semibold text-gray-800 tracking-tight truncate">KLH Admin</span>
+        {/* One row, not two. The tab row used to sit under the header, which
+            left an empty band across the middle of the header and an empty
+            stretch to the right of the tabs. Centring the tabs between the
+            identity and the sign-out control uses that space instead.
+
+            Both flanks are `flex-1 basis-0` so they claim equal width. Without
+            that the tabs centre in the leftover space, and since the logo block
+            is wider than the sign-out button they land off the bar's true
+            centre — visibly, by about 26px at desktop width. */}
+        <div className="flex items-center gap-2 px-3 sm:px-5 py-2">
+          <div className="flex flex-1 basis-0 min-w-0 items-center gap-2">
+            <Logo className="h-8 shrink-0 hover-scale" />
+            {/* Dropped on phones so the centred tabs keep their room. */}
+            <span className="hidden md:inline font-semibold text-gray-800 tracking-tight">KLH Admin</span>
           </div>
+
+          <div className="flex min-w-0 justify-center gap-1.5 overflow-x-auto whitespace-nowrap items-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {tabs.map((tab) => {
+              const isScan = tab.label === "ORDERS";
+              return (
+                <NavLink
+                  key={tab.to}
+                  to={tab.to}
+                  end={tab.to === "/admin"}
+                  // The label is gone from the surface, so it has to survive
+                  // somewhere: aria-label names the control for a screen
+                  // reader, title gives a sighted user the hover tooltip.
+                  aria-label={tab.label}
+                  title={tab.label}
+                  className={({ isActive }) =>
+                    `grid place-items-center shrink-0 transition-all hover-scale ${
+                      isScan
+                        ? `h-9 w-11 rounded-xl text-white flat-shadow ${
+                            isActive ? "bg-brand-700 ring-2 ring-offset-2 ring-brand-500" : "bg-brand-600 hover:bg-brand-500"
+                          }`
+                        : `h-9 w-9 rounded-full border border-transparent ${
+                            isActive
+                              ? "bg-gray-800 text-white shadow-md"
+                              : "bg-gray-100/80 text-gray-600 hover:bg-gray-200 hover:text-gray-900 hover:border-gray-300"
+                          }`
+                    }`
+                  }
+                >
+                  <TabIcon label={tab.label} className={isScan ? "h-5 w-5" : "h-[1.15rem] w-[1.15rem]"} />
+                </NavLink>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-1 basis-0 justify-end">
           <button
             onClick={logout}
             className="shrink-0 rounded-xl border border-gray-200 px-3 py-1.5 text-sm hover:bg-surface-muted transition-colors font-medium text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           >
             Log out
           </button>
-        </div>
-        <div className="flex gap-1.5 px-4 sm:px-6 pb-3 pt-1 overflow-x-auto whitespace-nowrap items-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {tabs.map((tab) => {
-            const isScan = tab.label === "ORDERS";
-            return (
-              <NavLink
-                key={tab.to}
-                to={tab.to}
-                end={tab.to === "/admin"}
-                // The label is gone from the surface, so it has to survive
-                // somewhere: aria-label names the control for a screen reader,
-                // title gives a sighted user the hover tooltip.
-                aria-label={tab.label}
-                title={tab.label}
-                className={({ isActive }) =>
-                  `grid place-items-center shrink-0 transition-all hover-scale ${
-                    isScan
-                      ? `h-10 w-12 rounded-xl text-white flat-shadow ${
-                          isActive ? "bg-brand-700 ring-2 ring-offset-2 ring-brand-500" : "bg-brand-600 hover:bg-brand-500"
-                        }`
-                      : `h-9 w-9 rounded-full border border-transparent ${
-                          isActive
-                            ? "bg-gray-800 text-white shadow-md"
-                            : "bg-gray-100/80 text-gray-600 hover:bg-gray-200 hover:text-gray-900 hover:border-gray-300"
-                        }`
-                  }`
-                }
-              >
-                <TabIcon label={tab.label} className={isScan ? "h-5 w-5" : "h-[1.15rem] w-[1.15rem]"} />
-              </NavLink>
-            );
-          })}
-          {/* Spacer to ensure right padding is respected during horizontal scroll */}
-          <div className="w-2 shrink-0 sm:w-4" aria-hidden="true" />
+          </div>
         </div>
       </nav>
     </div>
