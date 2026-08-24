@@ -10,13 +10,11 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Read once on mount and clear, so the notice shows for the arrival that
-  // caused it and not for every later visit to /login in the same tab.
-  const [sessionExpired] = useState(() => {
-    const flagged = sessionStorage.getItem(SESSION_EXPIRED_KEY) === "1";
-    if (flagged) sessionStorage.removeItem(SESSION_EXPIRED_KEY);
-    return flagged;
-  });
+  // A pure read. Clearing here would make the notice vanish in development,
+  // where StrictMode double-invokes the initializer and commits the SECOND
+  // result — by which point the first invocation has already consumed the flag.
+  // login() and logout() own clearing it.
+  const sessionExpired = sessionStorage.getItem(SESSION_EXPIRED_KEY) === "1";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

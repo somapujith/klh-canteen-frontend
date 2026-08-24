@@ -201,6 +201,129 @@ describe("AuthContext", () => {
     expect(sessionStorage.getItem(SESSION_EXPIRED_KEY)).toBeNull();
   });
 
+  it("survives a stored value that parses to null instead of white-screening the app", () => {
+    // `"null"` is truthy and parses without throwing, so only a shape check
+    // catches it. Dereferencing it crashes above the ErrorBoundary.
+    localStorage.setItem("klh_auth", "null");
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+    expect(result.current.token).toBeNull();
+    // Poison entry is cleared, so the next reload is clean rather than fatal.
+    expect(localStorage.getItem("klh_auth")).toBeNull();
+  });
+
+  it("survives a stored value that parses to a non-object", () => {
+    localStorage.setItem("klh_auth", "42");
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    expect(result.current.token).toBeNull();
+  });
+
+  it("survives a browser that forbids storage entirely", () => {
+    const boom = () => {
+      throw new DOMException("blocked", "SecurityError");
+    };
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(boom);
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(boom);
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(boom);
+
+    // The app must still boot — AuthProvider sits above the ErrorBoundary.
+    expect(() => renderHook(() => useAuth(), { wrapper: AuthProvider })).not.toThrow();
+
+    getItem.mockRestore();
+    setItem.mockRestore();
+    removeItem.mockRestore();
+  });
+
+  it("ignores a stale 401 from a session that has already been replaced", async () => {
+    const oldToken = jwtExpiringAt(Math.floor(Date.now() / 1000) + 3600);
+    storeAuth(oldToken);
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+    // A different exp, so the two tokens are genuinely distinct strings.
+    const newToken = jwtExpiringAt(Math.floor(Date.now() / 1000) + 7200);
+    (apiClient.post as any).mockResolvedValue({ token: newToken, role: "ADMIN", name: "Admin", id: "u1" });
+    await act(async () => {
+      await result.current.login("admin@klh.edu.in", "x");
+    });
+
+    // The previous session's in-flight request finally settles 401.
+    const registered = (setUnauthorizedHandler as any).mock.calls.at(-1)[0];
+    act(() => registered(oldToken));
+
+    expect(result.current.token).toBe(newToken);
+    expect(sessionStorage.getItem(SESSION_EXPIRED_KEY)).toBeNull();
+  });
+
+  it("does not claim a session expired when the user had already logged out", () => {
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    act(() => result.current.logout());
+
+    const registered = (setUnauthorizedHandler as any).mock.calls.at(-1)[0];
+    act(() => registered("some-stale-token"));
+
+    expect(sessionStorage.getItem(SESSION_EXPIRED_KEY)).toBeNull();
+  });
+
+  it("keeps the user in when the device clock says a freshly issued token is already expired", async () => {
+    // Tablet clock set hours ahead. The server just authenticated this token,
+    // so expiring it here would bounce the user to /login forever.
+    (apiClient.post as any).mockResolvedValue({
+      token: jwtExpiringAt(Math.floor(Date.now() / 1000) - 3600),
+      role: "ADMIN",
+      name: "Admin",
+      id: "u1",
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await act(async () => {
+      await result.current.login("admin@klh.edu.in", "x");
+    });
+
+    expect(result.current.token).not.toBeNull();
+    expect(sessionStorage.getItem(SESSION_EXPIRED_KEY)).toBeNull();
+  });
+
+  it("splits a wait longer than setTimeout can hold instead of expiring at the clamp", () => {
+    vi.useFakeTimers();
+    storeAuth(jwtExpiringAt(Math.floor(Date.now() / 1000) + 100 * 365 * 24 * 3600));
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+    // Run out the whole clamped timer. A clamp that expires would end it here.
+    act(() => {
+      vi.advanceTimersByTime(2 ** 31 - 1);
+    });
+
+    expect(result.current.token).not.toBeNull();
+  });
+
+  it("ends the session when the tab returns to the foreground after exp passed", () => {
+    vi.useFakeTimers();
+    storeAuth(jwtExpiringAt(Math.floor(Date.now() / 1000) + 30));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+    // Simulate a suspended tab: the clock moves, the timer does not fire.
+    vi.setSystemTime(Date.now() + 60_000);
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(result.current.token).toBeNull();
+  });
+
+  it("follows a logout performed in another tab", () => {
+    storeAuth(jwtExpiringAt(Math.floor(Date.now() / 1000) + 3600));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    expect(result.current.token).not.toBeNull();
+
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "klh_auth", newValue: null }));
+    });
+
+    expect(result.current.token).toBeNull();
+  });
+
   it("clears state and localStorage on logout", async () => {
     (apiClient.post as any).mockResolvedValue({ token: "abc123", role: "ADMIN", name: "Admin" });
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
