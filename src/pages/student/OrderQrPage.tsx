@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
+import { formatOrderNumber } from "../../lib/orderNumber";
 
 interface OrderDetail {
   id: string;
@@ -40,7 +41,7 @@ export function OrderQrPage() {
             <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
               <p className="text-sm text-gray-500">Show this QR at the {order.kitchen.toLowerCase()} counter</p>
               {order.qrDataUrl && <img src={order.qrDataUrl} alt={`${order.kitchen} QR code`} className="mx-auto rounded-xl" />}
-              <p className="text-2xl font-bold text-brand-900 tracking-wider">#{order.orderNumber}</p>
+              <p className="text-2xl font-bold text-brand-900 tracking-wider">#{formatOrderNumber(order.orderNumber)}</p>
               <span
                 className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
                   order.status === "DELIVERED" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"

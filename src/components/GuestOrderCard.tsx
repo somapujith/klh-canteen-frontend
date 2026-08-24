@@ -1,5 +1,6 @@
 import type { GuestOrder } from "../lib/guestSession";
 import { formatWindowTime } from "../lib/collectionWindows";
+import { formatOrderNumber } from "../lib/orderNumber";
 
 const STEPS: { status: GuestOrder["status"]; label: string }[] = [
   { status: "PENDING", label: "Placed" },
@@ -29,7 +30,7 @@ export function GuestOrderCard({ order, showQr = false }: { order: GuestOrder; s
       >
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wider text-gray-500">{order.kitchen} token</p>
-          <p className="text-3xl font-black text-gray-900 tracking-tight leading-tight">#{order.orderNumber}</p>
+          <p className="text-3xl font-black text-gray-900 tracking-tight leading-tight">#{formatOrderNumber(order.orderNumber)}</p>
         </div>
         <span
           className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${
@@ -75,7 +76,7 @@ export function GuestOrderCard({ order, showQr = false }: { order: GuestOrder; s
           <div className="text-center space-y-2">
             <img
               src={order.qrDataUrl}
-              alt={`QR code for ${order.kitchen} order ${order.orderNumber}`}
+              alt={`QR code for ${order.kitchen} order ${formatOrderNumber(order.orderNumber)}`}
               className="mx-auto rounded-xl w-44 h-44"
             />
             <p className="text-xs text-gray-500">Show this at the {order.kitchen.toLowerCase()} counter</p>

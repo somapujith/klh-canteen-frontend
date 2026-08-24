@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
 import { useSSE, type OrderCreatedDelta, type OrderSeenDelta, type OrderStatusDelta } from "../../hooks/useSSE";
 import { formatWindowTime } from "../../lib/collectionWindows";
+import { formatOrderNumber } from "../../lib/orderNumber";
 
 type OrderStatus = "PENDING" | "PREPARING" | "COOKED" | "DELIVERED";
 
@@ -52,10 +53,6 @@ const STATUS_ORDER: OrderStatus[] = ["PENDING", "PREPARING", "COOKED", "DELIVERE
 
 /** One screen of tiles. The board used to load every order ever placed. */
 const PAGE_SIZE = 48;
-
-function displayNumber(orderNumber: number): string {
-  return String(orderNumber % 1000).padStart(3, "0");
-}
 
 function customerLabel(customer: OrderCustomer): string {
   return customer.name?.trim() || (customer.type === "GUEST" ? "Walk-up guest" : "Unknown student");
@@ -330,7 +327,7 @@ export function AdminOrderBoardPage() {
                             : "bg-amber-400 text-amber-950 hover:bg-amber-300"
                         } ${isSelected ? "ring-4 ring-offset-2 ring-brand-500" : ""}`}
                       >
-                        {displayNumber(order.orderNumber)}
+                        {formatOrderNumber(order.orderNumber)}
                         {isGuest && (
                           <span className="absolute top-1.5 right-1.5 rounded-full bg-violet-600 text-white px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                             Guest
@@ -376,7 +373,7 @@ export function AdminOrderBoardPage() {
               <div className="flex-1 flex flex-col gap-6">
                 <div>
                   <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-black text-gray-900">#{displayNumber(selectedOrder.orderNumber)}</h2>
+                    <h2 className="text-2xl font-black text-gray-900">#{formatOrderNumber(selectedOrder.orderNumber)}</h2>
                     <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">{selectedOrder.status}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mt-2">

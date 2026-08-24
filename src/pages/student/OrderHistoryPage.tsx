@@ -4,6 +4,7 @@ import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
 import { useSSE, type OrderStatusDelta } from "../../hooks/useSSE";
+import { formatOrderNumber } from "../../lib/orderNumber";
 
 interface OrderSummary {
   id: string;
@@ -52,7 +53,7 @@ export function OrderHistoryPage() {
           >
             <div className="flex justify-between items-center">
               <div>
-                <span className="font-semibold text-brand-900 mr-2">#{order.orderNumber}</span>
+                <span className="font-semibold text-brand-900 mr-2">#{formatOrderNumber(order.orderNumber)}</span>
                 <span className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleString()}</span>
               </div>
               <span

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
+import { formatOrderNumber } from "../../lib/orderNumber";
 
 interface Order {
   id: string;
@@ -53,7 +54,7 @@ export function AdminLogsPage() {
               <div key={order.id} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 justify-between">
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="font-bold text-lg text-gray-900">#{order.orderNumber}</span>
+                    <span className="font-bold text-lg text-gray-900">#{formatOrderNumber(order.orderNumber)}</span>
                     <span
                       className={`text-xs font-bold px-2 py-1 rounded-md tracking-wider ${
                         order.status === "DELIVERED" ? "bg-gray-100 text-gray-600" : "bg-orange-100 text-orange-700"
