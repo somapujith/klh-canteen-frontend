@@ -40,7 +40,7 @@ export function Navbar({ title, cartCount, onCartClick }: NavbarProps) {
 
   return (
     <div className="nav-shell">
-      <nav className="w-full flex items-center justify-between nav-notch shadow-sm px-4 sm:px-6 py-3">
+      <nav className="w-full max-w-5xl flex items-center justify-between nav-notch shadow-sm px-4 sm:px-6 py-3">
       <div className="flex items-center gap-3">
         <Logo className="h-8 sm:h-9 shrink-0 hover-scale" />
         <span className="font-semibold text-gray-800 tracking-tight">{title}</span>

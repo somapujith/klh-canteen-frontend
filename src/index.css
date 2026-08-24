@@ -86,38 +86,79 @@ body {
   border-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Top bar: full-bleed, flush against the top edge.
-
-   It was previously a centred pill with inverted "ear" corners, inset by one
-   ear on each side. That inset was the whole source of the bare strips at the
-   left and right of the top edge, so the ears, the centring and the side
-   padding all go together — keeping the ears while removing the inset would
-   just push them off-screen.
-
-   Opaque, and deliberately not `glass-panel`: a bar pinned to the top edge has
-   the whole page sliding under it, and glass-panel's 0.95 alpha plus backdrop
-   blur let that content ghost through as a moving smear. Translucency reads as
-   depth over a static backdrop and as a rendering fault over a scrolling one. */
+/* Centred top bar with inverted ("tab ear") corners — the bar hangs from the top
+   edge, its bottom corners are convex, and two masked pseudo-elements flare the
+   white outward at the top so the shape blends into the page instead of ending
+   in a hard vertical edge. The ears are exactly --nav-notch wide, so the shell
+   wrapper must carry at least that much horizontal padding or they clip. */
 @utility nav-notch {
+  --nav-notch: 1.75rem;
   position: relative;
+  /* This utility owns the bar's whole surface, which is why the nav elements
+     no longer carry `glass-panel`. Trying to layer the two meant relying on
+     utility source order to beat glass-panel's 0.95 alpha, and Tailwind does
+     not guarantee that ordering — measured in the browser, glass-panel still
+     won. Opaque is also the correct look here: a bar pinned to the top edge
+     has the whole page sliding under it, and at 0.95 with a backdrop blur the
+     content ghosted through as a moving smear. Translucency reads as depth
+     over a static backdrop and as a rendering fault over a scrolling one. */
   background-color: #ffffff;
   border-width: 1px;
   border-style: var(--tw-border-style, solid);
   border-color: rgba(0, 0, 0, 0.05);
   /* After the shorthand, never before it: `border-width` resets all four sides.
-     Only the bottom edge is visible once the bar is full-bleed and flush. */
+     The bar sits flush against the viewport's top edge, where a top border is
+     just a hairline artefact. */
   border-top-width: 0;
-  border-left-width: 0;
-  border-right-width: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: var(--nav-notch);
+  border-bottom-right-radius: var(--nav-notch);
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: var(--nav-notch);
+    height: var(--nav-notch);
+    background-color: #ffffff;
+    pointer-events: none;
+  }
+
+  /* Quarter-disc punched out of the far corner leaves the concave arc. */
+  &::before {
+    left: calc(var(--nav-notch) * -1);
+    -webkit-mask-image: radial-gradient(circle var(--nav-notch) at 0 100%, transparent 99%, #000 100%);
+    mask-image: radial-gradient(circle var(--nav-notch) at 0 100%, transparent 99%, #000 100%);
+  }
+
+  &::after {
+    right: calc(var(--nav-notch) * -1);
+    -webkit-mask-image: radial-gradient(circle var(--nav-notch) at 100% 100%, transparent 99%, #000 100%);
+    mask-image: radial-gradient(circle var(--nav-notch) at 100% 100%, transparent 99%, #000 100%);
+  }
 }
 
-/* Sticky wrapper for a nav-notch bar. Carries the page-surface colour so
-   nothing shows through if the bar is ever narrower than the viewport. */
+/* Sticky centring shell for a nav-notch bar.
+
+   The background is load-bearing, not decoration. The bar is inset by one ear
+   on each side, and without an opaque shell the page scrolled through those
+   two strips at the very top of the viewport — the bar looked detached from
+   the top edge.
+
+   It names the page-surface token rather than `inherit`: every page wrapper in
+   the app is `bg-surface-muted`, but the shell is not always its direct child
+   (the guest pages put an unstyled div in between), and `inherit` picks up
+   that transparent intermediate instead of the wrapper. */
 @utility nav-shell {
   position: sticky;
   top: 0;
   z-index: 40;
-  display: block;
+  display: flex;
+  justify-content: center;
+  padding-left: 1.75rem;
+  padding-right: 1.75rem;
   background-color: var(--color-surface-muted);
 }
 

@@ -77,7 +77,7 @@ export function AdminNav() {
 
   return (
     <div className="nav-shell">
-      <nav className="w-full nav-notch shadow-sm">
+      <nav className="w-full max-w-6xl nav-notch shadow-sm">
         {/* One row, not two. The tab row used to sit under the header, which
             left an empty band across the middle of the header and an empty
             stretch to the right of the tabs. Centring the tabs between the
@@ -88,10 +88,11 @@ export function AdminNav() {
             is wider than the sign-out button they land off the bar's true
             centre — visibly, by about 26px at desktop width. */}
         <div className="flex items-center gap-2 px-3 sm:px-5 py-2">
-          <div className="flex flex-1 basis-0 min-w-0 items-center gap-2">
+          {/* Logo only — the wordmark already reads "KLH", so a "KLH Admin"
+              label beside it repeated the brand and ate room the centred tabs
+              need on narrow screens. */}
+          <div className="flex flex-1 basis-0 min-w-0 items-center">
             <Logo className="h-8 shrink-0 hover-scale" />
-            {/* Dropped on phones so the centred tabs keep their room. */}
-            <span className="hidden md:inline font-semibold text-gray-800 tracking-tight">KLH Admin</span>
           </div>
 
           <div className="flex min-w-0 justify-center gap-1.5 overflow-x-auto whitespace-nowrap items-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
