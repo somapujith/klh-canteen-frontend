@@ -44,12 +44,20 @@ interface OrdersEnvelope {
 }
 
 const STATUS_STEPS: { target: Exclude<OrderStatus, "PENDING">; label: string }[] = [
-  { target: "PREPARING", label: "Order Preparing" },
-  { target: "COOKED", label: "Order Cooked" },
-  { target: "DELIVERED", label: "Collect it" },
+  { target: "COOKED", label: "Order Prepared" },
+  { target: "DELIVERED", label: "Collected" },
 ];
 
-const STATUS_ORDER: OrderStatus[] = ["PENDING", "PREPARING", "COOKED", "DELIVERED"];
+const STATUS_ORDER: OrderStatus[] = ["PENDING", "COOKED", "DELIVERED"];
+
+/**
+ * PREPARING is retired from the flow, but orders placed before the change can
+ * still be sitting in it. Treat them as pre-COOKED so the board can finish
+ * them instead of stranding them with every button disabled.
+ */
+function statusIndex(status: OrderStatus): number {
+  return status === "PREPARING" ? 0 : STATUS_ORDER.indexOf(status);
+}
 
 /** One screen of tiles. The board used to load every order ever placed. */
 const PAGE_SIZE = 48;
@@ -101,6 +109,7 @@ export function AdminOrderBoardPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [tokenSearch, setTokenSearch] = useState("");
 
   const [selectedOrder, setSelectedOrder] = useState<SelectedOrder | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -269,7 +278,19 @@ export function AdminOrderBoardPage() {
     }
   }
 
-  const currentIndex = selectedOrder ? STATUS_ORDER.indexOf(selectedOrder.status) : -1;
+  const currentIndex = selectedOrder ? statusIndex(selectedOrder.status) : -1;
+
+  // Token search is a filter over what the board has already loaded. Digits
+  // only, and matched against the padded form too so typing "0042" or "42"
+  // both find token #0042.
+  const searchDigits = tokenSearch.replace(/\D/g, "");
+  const visibleOrders = searchDigits
+    ? orders.filter(
+        (o) =>
+          String(o.orderNumber).includes(searchDigits) ||
+          formatOrderNumber(o.orderNumber).includes(searchDigits)
+      )
+    : orders;
 
   return (
     <div className="min-h-screen bg-surface-muted pb-12 fade-in">
@@ -281,11 +302,29 @@ export function AdminOrderBoardPage() {
             <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Kitchen Order Board</h1>
             <p className="text-gray-500 mt-1">Tap an order to view details and move it through the kitchen.</p>
           </div>
-          {!loading && orders.length > 0 && (
-            <p className="text-sm font-medium text-gray-400">
-              {orders.length} active{hasMore ? "+" : ""} order{orders.length === 1 ? "" : "s"}
-            </p>
-          )}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <input
+                type="search"
+                inputMode="numeric"
+                value={tokenSearch}
+                onChange={(e) => setTokenSearch(e.target.value)}
+                placeholder="Search token #"
+                aria-label="Search by token number"
+                className="w-44 sm:w-52 rounded-2xl border border-gray-200 bg-surface pl-9 pr-3 py-2.5 text-sm font-semibold text-gray-800 placeholder:font-medium placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                ⌕
+              </span>
+            </div>
+            {!loading && orders.length > 0 && (
+              <p className="text-sm font-medium text-gray-400 whitespace-nowrap">
+                {searchDigits
+                  ? `${visibleOrders.length} match${visibleOrders.length === 1 ? "" : "es"}`
+                  : `${orders.length} active${hasMore ? "+" : ""} order${orders.length === 1 ? "" : "s"}`}
+              </p>
+            )}
+          </div>
         </div>
 
         {listError && (
@@ -310,10 +349,23 @@ export function AdminOrderBoardPage() {
               <div className="bg-surface rounded-3xl p-12 text-center flat-shadow border border-gray-100">
                 <p className="text-gray-500 font-medium">No active orders right now.</p>
               </div>
+            ) : visibleOrders.length === 0 ? (
+              <div className="bg-surface rounded-3xl p-12 text-center flat-shadow border border-gray-100 space-y-3">
+                <p className="text-gray-500 font-medium">No loaded order matches token #{searchDigits}.</p>
+                {hasMore && (
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="rounded-2xl bg-surface-muted px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-surface-hover disabled:opacity-50 transition"
+                  >
+                    {loadingMore ? "Loading..." : "Load older orders and retry"}
+                  </button>
+                )}
+              </div>
             ) : (
               <>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                  {orders.map((order) => {
+                  {visibleOrders.map((order) => {
                     const isSelected = order.id === selectedId;
                     const isGuest = order.customer.type === "GUEST";
                     return (

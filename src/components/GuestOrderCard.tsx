@@ -4,20 +4,22 @@ import { formatOrderNumber } from "../lib/orderNumber";
 
 const STEPS: { status: GuestOrder["status"]; label: string }[] = [
   { status: "PENDING", label: "Placed" },
-  { status: "PREPARING", label: "Preparing" },
-  { status: "COOKED", label: "Ready" },
+  { status: "COOKED", label: "Prepared" },
   { status: "DELIVERED", label: "Collected" },
 ];
 
 const STATUS_COPY: Record<GuestOrder["status"], string> = {
   PENDING: "Sent to the kitchen",
   PREPARING: "Being made right now",
-  COOKED: "Ready — collect it at the counter",
+  COOKED: "Prepared — collect it at the counter",
   DELIVERED: "Collected. Enjoy!",
 };
 
 export function GuestOrderCard({ order, showQr = false }: { order: GuestOrder; showQr?: boolean }) {
-  const currentIndex = STEPS.findIndex((s) => s.status === order.status);
+  // PREPARING is retired from the flow; a legacy order still in it sits
+  // between "Placed" and "Prepared", so light up the first step only.
+  const currentIndex =
+    order.status === "PREPARING" ? 0 : STEPS.findIndex((s) => s.status === order.status);
   const isReady = order.status === "COOKED";
   const isDone = order.status === "DELIVERED";
 
