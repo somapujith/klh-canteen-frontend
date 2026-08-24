@@ -49,14 +49,18 @@ const icons: Record<string, ReactNode> = {
 const adminTabs = [
   { to: "/admin", label: "Dashboard" },
   { to: "/admin/inventory", label: "Inventory" },
-  { to: "/admin/students", label: "Students" },
   { to: "/admin/logs", label: "Logs" },
   { to: "/admin/payments", label: "Payments" },
   { to: "/admin/board", label: "ORDERS" },
 ];
 
+// Students moved out of `adminTabs` when /admin/students became SUPERADMIN-only
+// (see App.tsx). It sits at the head of the elevated block rather than back in
+// its old slot between Inventory and Logs so the nav mirrors the permission
+// boundary: everything before Students is what a plain ADMIN also sees.
 const superAdminTabs = [
   ...adminTabs,
+  { to: "/admin/students", label: "Students" },
   { to: "/admin/users", label: "Users" },
   { to: "/admin/cohorts", label: "Cohorts" },
   { to: "/admin/system", label: "System" },
@@ -83,19 +87,27 @@ export function AdminNav() {
             stretch to the right of the tabs. Centring the tabs between the
             identity and the sign-out control uses that space instead.
 
-            Both flanks are `flex-1 basis-0` so they claim equal width. Without
-            that the tabs centre in the leftover space, and since the logo block
-            is wider than the sign-out button they land off the bar's true
-            centre — visibly, by about 26px at desktop width. */}
+            Both flanks are `flex-1 basis-0` so they claim equal width, which
+            is what puts the tabs on the bar's true centre rather than in the
+            middle of whatever space is left over.
+
+            `min-w-fit` on both is load-bearing at narrow widths. basis-0 sizes
+            each flank from the other, and the left one holds only a logo — so
+            the right flank was being sized to ~40px while the sign-out button
+            inside it is `shrink-0` and roughly twice that. With `justify-end`
+            the excess spilled leftwards, laying the button on top of the last
+            tab. fit-content is the floor that stops it. Perfect centring is
+            given up before overlap is: once a flank hits its content width the
+            tabs drift off centre, which is the correct thing to lose. */}
         <div className="flex items-center gap-2 px-3 sm:px-5 py-2">
           {/* Logo only — the wordmark already reads "KLH", so a "KLH Admin"
               label beside it repeated the brand and ate room the centred tabs
               need on narrow screens. */}
-          <div className="flex flex-1 basis-0 min-w-0 items-center">
+          <div className="flex flex-1 basis-0 min-w-fit items-center">
             <Logo className="h-8 shrink-0 hover-scale" />
           </div>
 
-          <div className="flex min-w-0 justify-center gap-1.5 overflow-x-auto whitespace-nowrap items-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex min-w-0 shrink justify-center gap-1.5 overflow-x-auto whitespace-nowrap items-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {tabs.map((tab) => {
               const isScan = tab.label === "ORDERS";
               return (
@@ -128,7 +140,7 @@ export function AdminNav() {
             })}
           </div>
 
-          <div className="flex flex-1 basis-0 justify-end">
+          <div className="flex flex-1 basis-0 min-w-fit justify-end">
           <button
             onClick={logout}
             className="shrink-0 rounded-xl border border-gray-200 px-3 py-1.5 text-sm hover:bg-surface-muted transition-colors font-medium text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20"

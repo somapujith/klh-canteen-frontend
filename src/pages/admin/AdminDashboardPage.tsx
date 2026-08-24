@@ -8,7 +8,7 @@ import { useSSE, type StockDelta } from "../../hooks/useSSE";
 import type { AdminOrder, Category, MenuItem } from "../../types/admin";
 
 export function AdminDashboardPage() {
-  const { token } = useAuth();
+  const { token, role } = useAuth();
   const [stats, setStats] = useState({ totalOrdersToday: 0, totalRevenueToday: "0.00" });
   const [isExporting, setIsExporting] = useState(false);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -259,6 +259,11 @@ export function AdminDashboardPage() {
             </div>
           </Link>
 
+          {/* /admin/students is SUPERADMIN-only (see App.tsx). Rendering this
+              card for a plain ADMIN would hand them a link that bounces them
+              straight to /login, which reads as a broken dashboard rather than
+              as a permission boundary. */}
+          {role === "SUPERADMIN" && (
           <Link to="/admin/students" className="bg-surface rounded-2xl p-6 flat-shadow border border-gray-100 hover:flat-shadow-hover hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center gap-4 group">
             <div className="bg-purple-50 text-purple-600 p-4 rounded-2xl group-hover:bg-purple-100 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -270,6 +275,7 @@ export function AdminDashboardPage() {
               <p className="text-xs text-gray-500 mt-1">Manage accounts & imports</p>
             </div>
           </Link>
+          )}
 
           <Link to="/admin/payments" className="bg-surface rounded-2xl p-6 flat-shadow border border-gray-100 hover:flat-shadow-hover hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center gap-4 group">
             <div className="bg-green-50 text-green-600 p-4 rounded-2xl group-hover:bg-green-100 transition-colors">

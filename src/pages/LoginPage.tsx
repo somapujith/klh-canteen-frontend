@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, SESSION_EXPIRED_KEY } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 
 export function LoginPage() {
@@ -10,6 +10,13 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Read once on mount and clear, so the notice shows for the arrival that
+  // caused it and not for every later visit to /login in the same tab.
+  const [sessionExpired] = useState(() => {
+    const flagged = sessionStorage.getItem(SESSION_EXPIRED_KEY) === "1";
+    if (flagged) sessionStorage.removeItem(SESSION_EXPIRED_KEY);
+    return flagged;
+  });
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -36,6 +43,15 @@ export function LoginPage() {
           <h2 className="text-xl font-semibold text-gray-800 mt-2">Welcome Back</h2>
           <p className="text-sm text-gray-500 text-center">Sign in to access your canteen account</p>
         </div>
+
+        {sessionExpired && !error && (
+          <div className="bg-amber-50 text-amber-800 p-3 rounded-lg text-sm flex items-start gap-2" role="status">
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Your session expired. Please log in again.</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1">

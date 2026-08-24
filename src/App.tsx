@@ -9,7 +9,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 const LoginPage = lazy(() => import("./pages/LoginPage").then(module => ({ default: module.LoginPage })));
 const StudentMenuPage = lazy(() => import("./pages/student/StudentMenuPage").then(module => ({ default: module.StudentMenuPage })));
 const CheckoutPage = lazy(() => import("./pages/student/CheckoutPage").then(module => ({ default: module.CheckoutPage })));
-const OrderQrPage = lazy(() => import("./pages/student/OrderQrPage").then(module => ({ default: module.OrderQrPage })));
+const OrderTokenPage = lazy(() => import("./pages/student/OrderTokenPage").then(module => ({ default: module.OrderTokenPage })));
 const OrderHistoryPage = lazy(() => import("./pages/student/OrderHistoryPage").then(module => ({ default: module.OrderHistoryPage })));
 const AdminMenuPage = lazy(() => import("./pages/admin/AdminMenuPage").then(module => ({ default: module.AdminMenuPage })));
 const AdminStudentsPage = lazy(() => import("./pages/admin/AdminStudentsPage").then(module => ({ default: module.AdminStudentsPage })));
@@ -55,14 +55,13 @@ export default function App() {
           <Route element={<ProtectedRoute role="STUDENT" />}>
             <Route path="/student" element={<StudentMenuPage />} />
             <Route path="/student/checkout" element={<CheckoutPage />} />
-            <Route path="/student/order/:id" element={<OrderQrPage />} />
+            <Route path="/student/order/:id" element={<OrderTokenPage />} />
             <Route path="/student/orders" element={<OrderHistoryPage />} />
           </Route>
 
           <Route element={<ProtectedRoute role="ADMIN" />}>
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/inventory" element={<AdminMenuPage />} />
-            <Route path="/admin/students" element={<AdminStudentsPage />} />
             <Route path="/admin/board" element={<AdminOrderBoardPage />} />
             <Route path="/admin/logs" element={<AdminLogsPage />} />
             <Route path="/admin/payments" element={<AdminPaymentsPage />} />
@@ -70,6 +69,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute role="SUPERADMIN" allowSuperAdmin={false} />}>
             <Route path="/superadmin" element={<Navigate to="/admin" replace />} />
+            <Route path="/admin/students" element={<AdminStudentsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/cohorts" element={<AdminCohortsPage />} />
             <Route path="/admin/system" element={<SuperAdminDashboardPage />} />

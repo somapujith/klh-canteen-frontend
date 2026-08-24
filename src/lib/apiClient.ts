@@ -13,6 +13,30 @@ export class ApiClientError extends Error {
   }
 }
 
+/**
+ * Called when the backend rejects a request that DID carry a user credential —
+ * i.e. the session is dead, not the password wrong. Registered by AuthProvider
+ * so a expired token clears the session instead of leaving the UI to retry a
+ * dead token forever.
+ */
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
+
+/**
+ * For credentialed calls that cannot go through `request` — currently only the
+ * CSV export, which needs the raw Response to read a blob and a
+ * Content-Disposition header. Without this, that one route could 401 and leave
+ * the user sitting in a dead session.
+ */
+export function notifyUnauthorized(): void {
+  unauthorizedHandler?.();
+}
+
 export interface RequestOptions {
   body?: unknown;
   token?: string;
@@ -36,6 +60,15 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   });
 
   if (!res.ok) {
+    // A 401 on a request that carried a JWT means the session is over. A 401
+    // with no token is a failed login attempt and must NOT log anyone out, and
+    // a 401 on a guest request carries its credential in `headers`, not
+    // `token`, so it stays out of this branch too — a guest whose session
+    // lapses must not bounce the logged-in admin on the same device.
+    if (res.status === 401 && token) {
+      unauthorizedHandler?.();
+    }
+
     let message = `Request failed with status ${res.status}`;
     let code: string | null = null;
     try {

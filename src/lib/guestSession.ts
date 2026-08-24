@@ -36,7 +36,6 @@ export interface GuestOrder {
   guestName: string | null;
   guestPhone: string | null;
   items: GuestOrderLine[];
-  qrDataUrl?: string;
 }
 
 function readStored(): StoredGuestSession | null {

@@ -14,5 +14,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/setupTests.ts",
+    // e2e/ holds Playwright specs, run by `npm run e2e`. Vitest's default
+    // include globs collect them too, and they throw on import — which left
+    // `vitest run` permanently red for reasons unrelated to any unit test.
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
   },
 });

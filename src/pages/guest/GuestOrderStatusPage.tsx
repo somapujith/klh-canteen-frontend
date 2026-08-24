@@ -109,7 +109,7 @@ export function GuestOrderStatusPage() {
             <p className="text-gray-400 font-medium animate-pulse">Loading your order...</p>
           </div>
         ) : (
-          orders.map((order) => <GuestOrderCard key={order.id} order={order} showQr />)
+          orders.map((order) => <GuestOrderCard key={order.id} order={order} />)
         )}
 
         {orders.length > 0 && (

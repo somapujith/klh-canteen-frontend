@@ -7,6 +7,8 @@ import { apiClient } from "../../lib/apiClient";
 
 vi.mock("../../lib/apiClient", () => ({
   apiClient: { post: vi.fn() },
+  // AuthProvider registers its 401 handler on mount, so the mock must carry it.
+  setUnauthorizedHandler: vi.fn(),
 }));
 
 it("submits pasted CSV text and shows per-row results", async () => {
