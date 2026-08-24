@@ -4,6 +4,7 @@ import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
 import { formatOrderNumber } from "../../lib/orderNumber";
+import { useSSE, type OrderStatusDelta } from "../../hooks/useSSE";
 
 interface OrderDetail {
   id: string;
@@ -49,6 +50,26 @@ export function OrderTokenPage() {
       cancelled = true;
     };
   }, [id, token, reloadKey]);
+
+  // Live status. The backend already pushes ORDER_UPDATE to the order owner's
+  // own channel whenever an admin advances it (sseService.emitOrderStatusChanged
+  // -> subjectAudience), and the guest status page has always consumed it —
+  // this page simply never subscribed, so a student watching their token saw
+  // PENDING until they reloaded. Patch from the delta rather than refetching:
+  // the whole point is that the person standing at the counter sees "Ready"
+  // the moment the kitchen marks it.
+  useSSE(["ORDER_UPDATE"], {
+    onDelta: (delta) => {
+      if (delta.kind !== "ORDER_STATUS") return;
+      const { orderId, status } = delta as OrderStatusDelta;
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? { ...order, status } : order)),
+      );
+    },
+    // Local state can no longer be trusted (missed events, or a payload this
+    // build doesn't understand) — go back to the server.
+    onResync: () => setReloadKey((key) => key + 1),
+  });
 
   if (error && orders.length === 0) {
     return (
@@ -188,25 +209,45 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
   );
 }
 
-/** Status never relies on colour alone: icon + word carry it on their own. */
+/**
+ * Status never relies on colour alone: icon + word carry it on their own.
+ *
+ * The wire values are shown as what they mean to the person holding the phone,
+ * not as the database spells them — COOKED is the one that matters, and
+ * "COOKED" is not what someone waiting at a counter is listening for. It gets
+ * its own treatment rather than sharing the pending amber, because "go and
+ * collect it" is the only state on this screen that asks the reader to move.
+ */
+const STATUS_VIEW: Record<string, { label: string; className: string; icon: "clock" | "bell" | "check" }> = {
+  PENDING: { label: "Placed", className: "border-amber-300 bg-amber-50 text-amber-900", icon: "clock" },
+  PREPARING: { label: "Being made", className: "border-amber-300 bg-amber-50 text-amber-900", icon: "clock" },
+  COOKED: { label: "Ready to collect", className: "border-brand-300 bg-brand-50 text-brand-700", icon: "bell" },
+  DELIVERED: { label: "Collected", className: "border-green-300 bg-green-50 text-green-800", icon: "check" },
+};
+
+const STATUS_ICON: Record<"clock" | "bell" | "check", string> = {
+  clock: "M12 8v4l2.5 2.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  bell: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1h6z",
+  check: "M5 13l4 4L19 7",
+};
+
 function StatusPill({ status }: { status: string }) {
-  const delivered = status === "DELIVERED";
+  const view = STATUS_VIEW[status] ?? {
+    label: status.replace(/_/g, " "),
+    className: "border-amber-300 bg-amber-50 text-amber-900",
+    icon: "clock" as const,
+  };
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${
-        delivered
-          ? "border-green-300 bg-green-50 text-green-800"
-          : "border-amber-300 bg-amber-50 text-amber-900"
-      }`}
+      // The word "Placed" also appears in the progress steps below, so tests
+      // need an unambiguous handle on the pill itself.
+      data-testid="order-status"
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${view.className}`}
     >
       <svg className="h-3.5 w-3.5 shrink-0" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-        {delivered ? (
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        ) : (
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2.5 2.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        )}
+        <path strokeLinecap="round" strokeLinejoin="round" d={STATUS_ICON[view.icon]} />
       </svg>
-      {status.replace(/_/g, " ")}
+      {view.label}
     </span>
   );
 }
