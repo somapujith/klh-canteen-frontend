@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoadingState } from "./components/LoadingState";
 import { NetworkStatus } from "./components/NetworkStatus";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const LoginPage = lazy(() => import("./pages/LoginPage").then(module => ({ default: module.LoginPage })));
 const StudentMenuPage = lazy(() => import("./pages/student/StudentMenuPage").then(module => ({ default: module.StudentMenuPage })));
@@ -37,7 +38,8 @@ export default function App() {
   return (
     <>
       <NetworkStatus />
-      <Suspense fallback={<LoadingState />}>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingState />}>
         <Routes>
           <Route path="/" element={<RoleRedirect />} />
           <Route path="/login" element={<LoginPage />} />
@@ -75,8 +77,9 @@ export default function App() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </>
   );
 }

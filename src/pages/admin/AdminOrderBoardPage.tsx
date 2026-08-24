@@ -248,8 +248,15 @@ export function AdminOrderBoardPage() {
       if (target === "DELIVERED") {
         removeOrder(orderId);
       } else {
-        setSelectedOrder(updated);
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: updated.status } : o)));
+        // Merge rather than replace. The board renders `customer` and `items`, and
+        // a response that ever omits them would otherwise blank the screen in the
+        // middle of service — the one moment the kitchen cannot recover from.
+        setSelectedOrder((current) =>
+          current && current.id === orderId ? { ...current, ...updated, status: updated.status ?? target } : current
+        );
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: updated.status ?? target } : o))
+        );
       }
     } catch (err) {
       setSelectError(
