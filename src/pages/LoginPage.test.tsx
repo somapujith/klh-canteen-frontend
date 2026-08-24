@@ -2,6 +2,12 @@ import { it, expect, vi, beforeEach } from "vitest";
 import { StrictMode } from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+
+const navigateSpy = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-router-dom")>()),
+  useNavigate: () => navigateSpy,
+}));
 import { AuthProvider, SESSION_EXPIRED_KEY } from "../context/AuthContext";
 import { LoginPage } from "./LoginPage";
 import { apiClient } from "../lib/apiClient";
@@ -50,6 +56,17 @@ it("still shows the notice under StrictMode, where a mutating read would swallow
   );
 
   expect(screen.getByText(/session expired/i)).toBeInTheDocument();
+});
+
+it("lands an admin on the order board rather than the dashboard", async () => {
+  (apiClient.post as any).mockResolvedValue({ token: "t", role: "ADMIN", name: "A", id: "u1" });
+
+  renderLogin();
+  fireEvent.change(screen.getByLabelText(/email or roll number/i), { target: { value: "admin@klh.edu.in" } });
+  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "pw" } });
+  fireEvent.click(screen.getByRole("button", { name: /log in/i }));
+
+  await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith("/admin/board", { replace: true }));
 });
 
 it("drops the notice once the user logs back in", async () => {

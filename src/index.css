@@ -255,3 +255,187 @@ body {
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Search input — clear with dissolve (t-clear).
+
+   The wrapper owns the field's box (border, radius, padding, surface); the
+   real <input> inside is transparent and unpadded so the mirror, the fake
+   placeholder and the glow layer can stack on the exact same text origin
+   (`padding: inherit` on an `inset: 0` absolute child lands on the input's
+   content box).
+
+   Only the resting state and the tuning variables live here. The transition
+   itself is per-frame JS in src/components/SearchInput.tsx: the streak's
+   rise/peak/fall envelope is not expressible as a static @keyframes, and the
+   per-word radial-gradient stack has to be measured from the rendered mirror.
+   JS reads these variables back with getComputedStyle, so tweaking a number
+   here changes the next clear without touching the component.
+   --------------------------------------------------------------------------- */
+:root {
+  --clear-dur: 1000ms;
+  --clear-out-dur: 400ms;
+  --clear-in-dur: 400ms;
+  --clear-out-fly: 12px;
+  --clear-in-fly: 12px;
+  --clear-blur: 2px;
+  --glow-delay: 50ms;
+  --glow-peak-at: 0.15;
+  --glow-opacity: 0.45;
+  --glow-spread: 1.5;
+  --glow-stagger: 70ms;
+}
+
+.t-clear {
+  position: relative;
+  overflow: hidden;
+}
+
+.t-clear > input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.t-clear > input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.t-clear-mirror,
+.t-clear-placeholder {
+  position: absolute;
+  inset: 0;
+  padding: inherit;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.t-clear-mirror { opacity: 0; }
+.t-clear.has-value .t-clear-mirror,
+.t-clear.is-clearing .t-clear-mirror { opacity: 1; }
+
+/* While the mirror owns the glyphs, the input must not draw its own or the
+   text double-renders behind the fly-up. */
+.t-clear.has-value > input,
+.t-clear.is-clearing > input {
+  -webkit-text-fill-color: transparent;
+}
+
+.t-clear.has-value .t-clear-placeholder { opacity: 0; }
+
+/* JS writes a stack of radial-gradient() layers in here during a clear, one
+   streak per word, and animates their alpha. multiply darkens the field and
+   the hairline border underneath it. */
+.t-clear-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+  mix-blend-mode: multiply;
+}
+
+.t-clear-btn {
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease-out, color 150ms ease-out;
+}
+.t-clear.has-value .t-clear-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-clear-glow { opacity: 0 !important; }
+  .t-clear-btn { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Spinning counter (t-reel).
+
+   One .t-reel-col per digit, each clipping a strip (.t-reel-strip) of 0-9
+   cells. The strip starts parked on its own digit and is translated up by
+   (spins * 10 + digit) cells, so it spins whole loops and lands back on the
+   number it was already showing — which is what lets the resting, unrevealed
+   state be the real number under a blur rather than a placeholder.
+
+   The streak is a directional SVG feGaussianBlur (stdDeviation="0 Y"): CSS
+   blur() is isotropic and would smear the digits sideways. Timing lives here;
+   the per-column transform and the blur decay are driven from
+   src/components/TokenReel.tsx, which reads these variables back with
+   getComputedStyle — retune a number here and the next reveal picks it up.
+   --------------------------------------------------------------------------- */
+:root {
+  --reel-dur: 1400ms;
+  --reel-cell: 30px;
+  --reel-spin-blur: 3px;
+  --reel-stagger: 90ms;
+  --reel-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Resting blur on an unrevealed token. In em so it tracks the type scale. */
+  --reel-hide-blur: 0.11em;
+}
+
+.t-reel {
+  display: inline-flex;
+  align-items: center;
+  height: var(--reel-cell);
+  font-variant-numeric: tabular-nums;
+}
+
+.t-reel-col {
+  position: relative;
+  height: var(--reel-cell);
+  overflow: hidden;
+  /* Soft-fade the window edges instead of hard-cropping. The stops sit clear
+     of the glyph box (see --reel-cell below) so a settled digit is never
+     touched by the fade. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+}
+
+.t-reel-strip {
+  display: flex;
+  flex-direction: column;
+  will-change: transform, filter;
+}
+
+.t-reel-digit {
+  height: var(--reel-cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Anything that isn't a digit (a separator, say) rides along without a reel. */
+.t-reel-static {
+  display: flex;
+  align-items: center;
+  height: var(--reel-cell);
+}
+
+/* Hero sizing: the cell tracks the font size and is deliberately taller than
+   the glyph, so the mask's fade zone lands in empty space. */
+.t-reel--token { --reel-cell: 1.3em; }
+
+/* Unrevealed: the real number, blurred well past reading. Isotropic on
+   purpose — this one is concealment, not motion. It sits on the root and not
+   on each strip because a per-column blur gets clipped by that column's
+   overflow, leaving hard seams between the digits. */
+.t-reel--hidden { filter: blur(var(--reel-hide-blur)); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* The reveal still happens, it just arrives instead of spinning. The
+     concealing blur is not motion, so it is left alone. */
+  .t-reel-strip { transition: none !important; }
+  .t-reel--spinning .t-reel-strip { filter: none !important; }
+}

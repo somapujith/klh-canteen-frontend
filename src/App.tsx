@@ -3,6 +3,7 @@ import { lazyRoute, clearChunkReloadFlag } from "./lib/lazyRoute";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { landingPathFor } from "./lib/landing";
 import { LoadingState } from "./components/LoadingState";
 import { NetworkStatus } from "./components/NetworkStatus";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -32,7 +33,7 @@ const GuestOrdersPage = lazyRoute(() => import("./pages/guest/GuestOrdersPage").
 function RoleRedirect() {
   const { token, role } = useAuth();
   if (!token) return <Navigate to="/login" replace />;
-  return <Navigate to={role === "SUPERADMIN" ? "/admin" : role === "ADMIN" ? "/admin" : "/student"} replace />;
+  return <Navigate to={landingPathFor(role)} replace />;
 }
 
 export default function App() {

@@ -5,6 +5,7 @@ import { useAdminUsers } from "../../hooks/useAdminUsers";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
 import { BulkAddStudents } from "../../components/BulkAddStudents";
+import { SearchInput } from "../../components/SearchInput";
 import { UserFormModal } from "../../components/admin/UserFormModal";
 import { ConfirmDialog } from "../../components/admin/ConfirmDialog";
 import { ActivationResultPanel } from "../../components/admin/ActivationResultPanel";
@@ -174,12 +175,12 @@ export function AdminUsersPage() {
         <BulkAddStudents token={token} onImported={refresh} />
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <input
+          <SearchInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={setSearch}
             placeholder="Search by name, email, or roll number"
-            aria-label="Search users"
-            className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            label="Search users"
+            className="flex-1 rounded-xl border border-gray-300 bg-surface px-3 py-2 pr-9 text-sm focus-within:ring-2 focus-within:ring-brand-500/20"
           />
           <select
             value={roleFilter}

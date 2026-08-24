@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, SESSION_EXPIRED_KEY } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
+import { landingPathFor } from "../lib/landing";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -25,7 +26,7 @@ export function LoginPage() {
       // auth context here would still hold the pre-login value, which sent
       // every admin to the student route and bounced them back to /login.
       const session = await login(identifier, password);
-      navigate(session.role === "STUDENT" ? "/student" : "/admin", { replace: true });
+      navigate(landingPathFor(session.role), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -64,7 +65,7 @@ export function LoginPage() {
               required
               disabled={loading}
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-200 disabled:opacity-60"
-              placeholder="e.g. student@klh.edu.in"
+              placeholder="e.g. 2420090001"
             />
           </div>
           <div className="space-y-1">

@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 import { Logo } from "./Logo";
+import { Tooltip } from "./Tooltip";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -110,20 +111,22 @@ export function AdminNav() {
           <div className="flex min-w-0 shrink justify-center gap-1.5 overflow-x-auto whitespace-nowrap items-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {tabs.map((tab) => {
               const isScan = tab.label === "ORDERS";
-              return (
+
+              const link = (
                 <NavLink
-                  key={tab.to}
                   to={tab.to}
                   end={tab.to === "/admin"}
-                  // The label is gone from the surface, so it has to survive
-                  // somewhere: aria-label names the control for a screen
-                  // reader, title gives a sighted user the hover tooltip.
+                  // ORDERS carries its own visible text, so the label survives
+                  // on the surface. Every other tab is icon-only: aria-label
+                  // names it for a screen reader and Tooltip shows it on hover
+                  // or focus. No `title` anywhere — the native tooltip would
+                  // appear alongside the styled one, a second later, saying the
+                  // same thing.
                   aria-label={tab.label}
-                  title={tab.label}
                   className={({ isActive }) =>
-                    `grid place-items-center shrink-0 transition-all hover-scale ${
+                    `inline-flex items-center justify-center shrink-0 transition-all hover-scale ${
                       isScan
-                        ? `h-9 w-11 rounded-xl text-white flat-shadow ${
+                        ? `h-10 gap-2 rounded-xl pl-3 pr-3.5 text-white flat-shadow ${
                             isActive ? "bg-brand-700 ring-2 ring-offset-2 ring-brand-500" : "bg-brand-600 hover:bg-brand-500"
                           }`
                         : `h-9 w-9 rounded-full border border-transparent ${
@@ -135,7 +138,22 @@ export function AdminNav() {
                   }
                 >
                   <TabIcon label={tab.label} className={isScan ? "h-5 w-5" : "h-[1.15rem] w-[1.15rem]"} />
+                  {isScan && (
+                    <span className="text-sm font-black uppercase tracking-wide leading-none">Orders</span>
+                  )}
                 </NavLink>
+              );
+
+              // A tooltip repeating text the button already shows is noise, so
+              // ORDERS opts out.
+              return isScan ? (
+                <span key={tab.to} className="inline-flex shrink-0">
+                  {link}
+                </span>
+              ) : (
+                <Tooltip key={tab.to} label={tab.label}>
+                  {link}
+                </Tooltip>
               );
             })}
           </div>

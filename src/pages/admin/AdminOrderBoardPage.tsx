@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiClient, ApiClientError } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
+import { SearchInput } from "../../components/SearchInput";
 import { useSSE, type OrderCreatedDelta, type OrderSeenDelta, type OrderStatusDelta } from "../../hooks/useSSE";
 import { formatWindowTime } from "../../lib/collectionWindows";
 import { formatOrderNumber } from "../../lib/orderNumber";
@@ -303,20 +304,19 @@ export function AdminOrderBoardPage() {
             <p className="text-gray-500 mt-1">Tap an order to view details and move it through the kitchen.</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <input
-                type="search"
-                inputMode="numeric"
-                value={tokenSearch}
-                onChange={(e) => setTokenSearch(e.target.value)}
-                placeholder="Search token #"
-                aria-label="Search by token number"
-                className="w-44 sm:w-52 rounded-2xl border border-gray-200 bg-surface pl-9 pr-3 py-2.5 text-sm font-semibold text-gray-800 placeholder:font-medium placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-              <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                ⌕
-              </span>
-            </div>
+            <SearchInput
+              value={tokenSearch}
+              onChange={setTokenSearch}
+              inputMode="numeric"
+              placeholder="Search token #"
+              label="Search by token number"
+              className="w-44 sm:w-52 rounded-2xl border border-gray-200 bg-surface pl-9 pr-9 py-2.5 text-sm font-semibold text-gray-800 focus-within:ring-2 focus-within:ring-brand-500"
+              leadingIcon={
+                <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 z-4 text-gray-400">
+                  ⌕
+                </span>
+              }
+            />
             {!loading && orders.length > 0 && (
               <p className="text-sm font-medium text-gray-400 whitespace-nowrap">
                 {searchDigits

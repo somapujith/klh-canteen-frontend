@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
+import { TokenReel } from "../../components/TokenReel";
 import { formatOrderNumber } from "../../lib/orderNumber";
 import { useSSE, type OrderStatusDelta } from "../../hooks/useSSE";
 
@@ -115,8 +116,8 @@ export function OrderTokenPage() {
           </h1>
           <p className="mx-auto mt-1.5 max-w-[19rem] text-sm leading-relaxed text-gray-500">
             {multiple
-              ? "Each counter has its own number. Quote the matching one when you collect."
-              : "Quote the number below at the counter to collect."}
+              ? "Each counter has its own number. Reveal the matching one when you collect."
+              : "Reveal your number at the counter to collect."}
           </p>
         </header>
 
@@ -133,6 +134,9 @@ export function OrderTokenPage() {
 function OrderTicket({ order, index, total }: { order: OrderDetail; index: number; total: number }) {
   const digits = formatOrderNumber(order.orderNumber);
   const kitchen = order.kitchen.toLowerCase();
+  // Each ticket reveals on its own — a student collecting from two counters
+  // shows one number at a time.
+  const [revealed, setRevealed] = useState(false);
 
   return (
     <article
@@ -158,16 +162,46 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
           Token number
         </p>
 
-        <div className="mt-1.5">
+        <div className="relative mt-1.5">
           {/* Spaced digits so screen readers say "zero zero four two" — the way a
-              student would read it out — instead of "forty-two". */}
-          <span className="sr-only">Token number {digits.split("").join(" ")}</span>
-          <span aria-hidden="true" className="flex items-start justify-center text-brand-900">
-            <span className="mt-2 text-2xl font-bold text-brand-300 sm:mt-3 sm:text-3xl">#</span>
-            <span className="text-[4.75rem] font-black leading-none tracking-tight tabular-nums sm:text-8xl">
-              {digits}
+              student would read it out — instead of "forty-two". Announced on
+              reveal rather than sitting in the accessibility tree from the
+              start, so the number is hidden for everyone until it is asked for. */}
+          {revealed ? (
+            <span className="sr-only" aria-live="polite">
+              Token number {digits.split("").join(" ")}
             </span>
+          ) : (
+            <span className="sr-only">Token number hidden. Use the show token button to reveal it.</span>
+          )}
+
+          <span aria-hidden="true" className="flex items-start justify-center text-brand-900">
+            {/* The hash belongs to the number, so it hides with it. */}
+            <span
+              className="mt-2 text-2xl font-bold text-brand-300 sm:mt-3 sm:text-3xl"
+              style={revealed ? undefined : { filter: "blur(var(--reel-hide-blur))" }}
+            >
+              #
+            </span>
+            <TokenReel
+              digits={digits}
+              revealed={revealed}
+              className="-my-[0.15em] text-[4.75rem] font-black leading-none tracking-tight sm:text-8xl"
+            />
           </span>
+
+          {/* Sits over the blurred number rather than under it: revealing must
+              not reflow the ticket the student is already looking at. */}
+          {!revealed && (
+            <button
+              type="button"
+              onClick={() => setRevealed(true)}
+              className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-brand-700 px-5 py-2.5 text-sm font-bold text-white flat-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2"
+            >
+              <EyeIcon />
+              Show token
+            </button>
+          )}
         </div>
 
         <div className="mt-5">
@@ -175,8 +209,17 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
         </div>
 
         <p className="mx-auto mt-4 max-w-[17rem] text-sm leading-relaxed text-gray-500">
-          Show or read out this number at the{" "}
-          <span className="font-semibold text-gray-700">{kitchen}</span> counter.
+          {revealed ? (
+            <>
+              Show or read out this number at the{" "}
+              <span className="font-semibold text-gray-700">{kitchen}</span> counter.
+            </>
+          ) : (
+            <>
+              Reveal it at the <span className="font-semibold text-gray-700">{kitchen}</span> counter when
+              you are ready to collect.
+            </>
+          )}
         </p>
       </div>
 
@@ -230,6 +273,19 @@ const STATUS_ICON: Record<"clock" | "bell" | "check", string> = {
   bell: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1h6z",
   check: "M5 13l4 4L19 7",
 };
+
+function EyeIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12s-3.75 6.75-9.75 6.75S2.25 12 2.25 12Z"
+      />
+      <circle cx="12" cy="12" r="2.75" />
+    </svg>
+  );
+}
 
 function StatusPill({ status }: { status: string }) {
   const view = STATUS_VIEW[status] ?? {
