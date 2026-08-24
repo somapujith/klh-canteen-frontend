@@ -111,14 +111,28 @@ export function AdminOrderBoardPage() {
   const [selectError, setSelectError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
+  /**
+   * A backend that predates the envelope format (or a version-skewed deploy)
+   * answers `?format=envelope` with a bare array instead of `{data, ...}` —
+   * normalise both shapes here so a deploy mismatch degrades to "no
+   * pagination" instead of crashing the board on `orders.length`.
+   */
+  function normalizeEnvelope(response: OrdersEnvelope | BoardOrder[]): OrdersEnvelope {
+    if (Array.isArray(response)) {
+      return { data: response, nextCursor: null, hasMore: false };
+    }
+    return { data: response.data ?? [], nextCursor: response.nextCursor ?? null, hasMore: response.hasMore ?? false };
+  }
+
   /** Full refetch of the first page. The realtime fallback, not the steady state. */
   const fetchFirstPage = useCallback(() => {
     return apiClient
-      .get<OrdersEnvelope>(
+      .get<OrdersEnvelope | BoardOrder[]>(
         `/admin/orders?format=envelope&active=true&limit=${PAGE_SIZE}`,
         token ?? undefined
       )
-      .then((envelope) => {
+      .then((response) => {
+        const envelope = normalizeEnvelope(response);
         setOrders(envelope.data);
         setNextCursor(envelope.nextCursor);
         setHasMore(envelope.hasMore);
@@ -133,10 +147,11 @@ export function AdminOrderBoardPage() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const envelope = await apiClient.get<OrdersEnvelope>(
+      const response = await apiClient.get<OrdersEnvelope | BoardOrder[]>(
         `/admin/orders?format=envelope&active=true&limit=${PAGE_SIZE}&cursor=${encodeURIComponent(nextCursor)}`,
         token ?? undefined
       );
+      const envelope = normalizeEnvelope(response);
       setOrders((prev) => {
         const seen = new Set(prev.map((o) => o.id));
         return [...prev, ...envelope.data.filter((o) => !seen.has(o.id))];
