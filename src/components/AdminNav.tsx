@@ -24,7 +24,8 @@ export function AdminNav() {
   const tabs = role === "SUPERADMIN" ? superAdminTabs : adminTabs;
 
   return (
-    <nav className="glass-panel rounded-b-2xl shadow-sm sticky top-0 z-40">
+    <div className="nav-shell">
+      <nav className="w-full max-w-6xl glass-panel nav-notch shadow-sm">
       <div className="flex items-center justify-between px-4 sm:px-6 py-3">
         <div className="flex items-center gap-2 sm:gap-3">
           <Logo className="h-8 sm:h-9 shrink-0 hover-scale" />
@@ -70,6 +71,7 @@ export function AdminNav() {
         {/* Spacer to ensure right padding is respected during horizontal scroll */}
         <div className="w-2 shrink-0 sm:w-4" aria-hidden="true" />
       </div>
-    </nav>
+      </nav>
+    </div>
   );
 }

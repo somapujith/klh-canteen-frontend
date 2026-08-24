@@ -86,6 +86,56 @@ body {
   border-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Centred top bar with inverted ("tab ear") corners — the bar hangs from the top
+   edge, its bottom corners are convex, and two masked pseudo-elements flare the
+   white outward at the top so the shape blends into the page instead of ending
+   in a hard vertical edge. The ears are exactly --nav-notch wide, so the shell
+   wrapper must carry at least that much horizontal padding or they clip. */
+@utility nav-notch {
+  --nav-notch: 1.75rem;
+  position: relative;
+  border-top-width: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: var(--nav-notch);
+  border-bottom-right-radius: var(--nav-notch);
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: var(--nav-notch);
+    height: var(--nav-notch);
+    background-color: rgba(255, 255, 255, 0.95);
+    pointer-events: none;
+  }
+
+  /* Quarter-disc punched out of the far corner leaves the concave arc. */
+  &::before {
+    left: calc(var(--nav-notch) * -1);
+    -webkit-mask-image: radial-gradient(circle var(--nav-notch) at 0 100%, transparent 99%, #000 100%);
+    mask-image: radial-gradient(circle var(--nav-notch) at 0 100%, transparent 99%, #000 100%);
+  }
+
+  &::after {
+    right: calc(var(--nav-notch) * -1);
+    -webkit-mask-image: radial-gradient(circle var(--nav-notch) at 100% 100%, transparent 99%, #000 100%);
+    mask-image: radial-gradient(circle var(--nav-notch) at 100% 100%, transparent 99%, #000 100%);
+  }
+}
+
+/* Sticky centring shell for a nav-notch bar. */
+@utility nav-shell {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding-left: 1.75rem;
+  padding-right: 1.75rem;
+}
+
 @utility flat-shadow {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }

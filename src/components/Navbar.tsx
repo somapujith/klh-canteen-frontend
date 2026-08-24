@@ -39,7 +39,8 @@ export function Navbar({ title, cartCount, onCartClick }: NavbarProps) {
   }
 
   return (
-    <nav className="flex items-center justify-between glass-panel rounded-b-2xl shadow-sm px-4 sm:px-6 py-3 relative z-40 sticky top-0">
+    <div className="nav-shell">
+      <nav className="w-full max-w-5xl flex items-center justify-between glass-panel nav-notch shadow-sm px-4 sm:px-6 py-3">
       <div className="flex items-center gap-3">
         <Logo className="h-8 sm:h-9 shrink-0 hover-scale" />
         <span className="font-semibold text-gray-800 tracking-tight">{title}</span>
@@ -114,7 +115,8 @@ export function Navbar({ title, cartCount, onCartClick }: NavbarProps) {
           </div>
         )}
       </div>
-      </div>
-    </nav>
+        </div>
+      </nav>
+    </div>
   );
 }
