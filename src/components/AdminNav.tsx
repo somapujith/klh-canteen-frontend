@@ -77,7 +77,7 @@ export function AdminNav() {
 
   return (
     <div className="nav-shell">
-      <nav className="w-full max-w-6xl nav-notch shadow-sm">
+      <nav className="w-full nav-notch shadow-sm">
         {/* One row, not two. The tab row used to sit under the header, which
             left an empty band across the middle of the header and an empty
             stretch to the right of the tabs. Centring the tabs between the
