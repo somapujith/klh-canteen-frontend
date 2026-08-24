@@ -86,7 +86,7 @@ export async function downloadOrdersCsv(filters: OrderExportFilters, token: stri
   if (!res.ok) {
     // This call always carries a token, so a 401 can only mean the session is
     // over. It bypasses apiClient.request, so it has to say so itself.
-    if (res.status === 401) notifyUnauthorized();
+    if (res.status === 401) notifyUnauthorized(token);
 
     let message = `Export failed with status ${res.status}`;
     let code: string | null = null;

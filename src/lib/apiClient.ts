@@ -19,7 +19,7 @@ export class ApiClientError extends Error {
  * so a expired token clears the session instead of leaving the UI to retry a
  * dead token forever.
  */
-type UnauthorizedHandler = () => void;
+type UnauthorizedHandler = (failedToken?: string) => void;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 
@@ -33,8 +33,8 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
  * Content-Disposition header. Without this, that one route could 401 and leave
  * the user sitting in a dead session.
  */
-export function notifyUnauthorized(): void {
-  unauthorizedHandler?.();
+export function notifyUnauthorized(failedToken?: string): void {
+  unauthorizedHandler?.(failedToken);
 }
 
 export interface RequestOptions {
@@ -66,7 +66,10 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     // `token`, so it stays out of this branch too — a guest whose session
     // lapses must not bounce the logged-in admin on the same device.
     if (res.status === 401 && token) {
-      unauthorizedHandler?.();
+      // Pass the token that failed. A request begun under a previous session can
+      // land after someone else has logged in on the same device, and tearing
+      // down THAT session would be wrong — the receiver compares before acting.
+      unauthorizedHandler?.(token);
     }
 
     let message = `Request failed with status ${res.status}`;

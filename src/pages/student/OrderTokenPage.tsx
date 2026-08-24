@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
@@ -9,7 +9,6 @@ interface OrderDetail {
   id: string;
   status: string;
   totalAmount: string;
-  token: string;
   orderNumber: number;
   kitchen: string;
   items: { quantity: number; menuItem: { name: string } }[];
@@ -26,14 +25,60 @@ export function OrderTokenPage() {
   const { id } = useParams();
   const { token } = useAuth();
   const [orders, setOrders] = useState<OrderDetail[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  // Bumping this re-runs the fetch effect, which is what Try again does.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!id) return;
-    const ids = id.split(",");
+    let cancelled = false;
+    const ids = id.split(",").filter(Boolean);
+    setError(null);
     Promise.all(
       ids.map(orderId => apiClient.get<OrderDetail>(`/orders/${orderId}`, token ?? undefined))
-    ).then(setOrders).catch(console.error);
-  }, [id, token]);
+    )
+      .then(fetched => {
+        if (!cancelled) setOrders(fetched);
+      })
+      .catch((err: unknown) => {
+        // Without this the page sat on its loading skeleton forever — the worst
+        // possible screen to strand someone on right after they have paid.
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not load your token");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, token, reloadKey]);
+
+  if (error && orders.length === 0) {
+    return (
+      <div className="min-h-screen bg-surface-muted fade-in">
+        <Navbar title="Your Token" />
+        <div className="mx-auto w-full max-w-sm px-4 pb-16 pt-10 sm:max-w-md">
+          <div role="alert" className="rounded-2xl bg-surface p-6 text-center flat-shadow">
+            <h1 className="text-lg font-bold tracking-tight text-gray-900">Could not load your token</h1>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">{error}</p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              Your order is placed. Find it any time under order history.
+            </p>
+            <button
+              type="button"
+              onClick={() => setReloadKey(k => k + 1)}
+              className="mt-5 w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-bold text-white"
+            >
+              Try again
+            </button>
+            <Link
+              to="/student/orders"
+              className="mt-3 block text-sm font-semibold text-brand-700 underline underline-offset-4"
+            >
+              Go to order history
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (orders.length === 0) return <TokenPageSkeleton />;
 

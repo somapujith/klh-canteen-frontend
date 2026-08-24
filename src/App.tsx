@@ -1,4 +1,5 @@
-import { Suspense, lazy } from "react";
+import { Suspense, useEffect } from "react";
+import { lazyRoute, clearChunkReloadFlag } from "./lib/lazyRoute";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -6,27 +7,27 @@ import { LoadingState } from "./components/LoadingState";
 import { NetworkStatus } from "./components/NetworkStatus";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
-const LoginPage = lazy(() => import("./pages/LoginPage").then(module => ({ default: module.LoginPage })));
-const StudentMenuPage = lazy(() => import("./pages/student/StudentMenuPage").then(module => ({ default: module.StudentMenuPage })));
-const CheckoutPage = lazy(() => import("./pages/student/CheckoutPage").then(module => ({ default: module.CheckoutPage })));
-const OrderTokenPage = lazy(() => import("./pages/student/OrderTokenPage").then(module => ({ default: module.OrderTokenPage })));
-const OrderHistoryPage = lazy(() => import("./pages/student/OrderHistoryPage").then(module => ({ default: module.OrderHistoryPage })));
-const AdminMenuPage = lazy(() => import("./pages/admin/AdminMenuPage").then(module => ({ default: module.AdminMenuPage })));
-const AdminStudentsPage = lazy(() => import("./pages/admin/AdminStudentsPage").then(module => ({ default: module.AdminStudentsPage })));
-const AdminOrderBoardPage = lazy(() => import("./pages/admin/AdminOrderBoardPage").then(module => ({ default: module.AdminOrderBoardPage })));
-const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage").then(module => ({ default: module.AdminDashboardPage })));
-const AdminLogsPage = lazy(() => import("./pages/admin/AdminLogsPage").then(module => ({ default: module.AdminLogsPage })));
-const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage").then(module => ({ default: module.AdminPaymentsPage })));
-const SuperAdminDashboardPage = lazy(() => import("./pages/admin/SuperAdminDashboardPage").then(module => ({ default: module.SuperAdminDashboardPage })));
-const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage").then(module => ({ default: module.AdminUsersPage })));
-const AdminAuditLogPage = lazy(() => import("./pages/admin/AdminAuditLogPage").then(module => ({ default: module.AdminAuditLogPage })));
-const AdminCohortsPage = lazy(() => import("./pages/admin/AdminCohortsPage").then(module => ({ default: module.AdminCohortsPage })));
+const LoginPage = lazyRoute(() => import("./pages/LoginPage").then(module => ({ default: module.LoginPage })));
+const StudentMenuPage = lazyRoute(() => import("./pages/student/StudentMenuPage").then(module => ({ default: module.StudentMenuPage })));
+const CheckoutPage = lazyRoute(() => import("./pages/student/CheckoutPage").then(module => ({ default: module.CheckoutPage })));
+const OrderTokenPage = lazyRoute(() => import("./pages/student/OrderTokenPage").then(module => ({ default: module.OrderTokenPage })));
+const OrderHistoryPage = lazyRoute(() => import("./pages/student/OrderHistoryPage").then(module => ({ default: module.OrderHistoryPage })));
+const AdminMenuPage = lazyRoute(() => import("./pages/admin/AdminMenuPage").then(module => ({ default: module.AdminMenuPage })));
+const AdminStudentsPage = lazyRoute(() => import("./pages/admin/AdminStudentsPage").then(module => ({ default: module.AdminStudentsPage })));
+const AdminOrderBoardPage = lazyRoute(() => import("./pages/admin/AdminOrderBoardPage").then(module => ({ default: module.AdminOrderBoardPage })));
+const AdminDashboardPage = lazyRoute(() => import("./pages/admin/AdminDashboardPage").then(module => ({ default: module.AdminDashboardPage })));
+const AdminLogsPage = lazyRoute(() => import("./pages/admin/AdminLogsPage").then(module => ({ default: module.AdminLogsPage })));
+const AdminPaymentsPage = lazyRoute(() => import("./pages/admin/AdminPaymentsPage").then(module => ({ default: module.AdminPaymentsPage })));
+const SuperAdminDashboardPage = lazyRoute(() => import("./pages/admin/SuperAdminDashboardPage").then(module => ({ default: module.SuperAdminDashboardPage })));
+const AdminUsersPage = lazyRoute(() => import("./pages/admin/AdminUsersPage").then(module => ({ default: module.AdminUsersPage })));
+const AdminAuditLogPage = lazyRoute(() => import("./pages/admin/AdminAuditLogPage").then(module => ({ default: module.AdminAuditLogPage })));
+const AdminCohortsPage = lazyRoute(() => import("./pages/admin/AdminCohortsPage").then(module => ({ default: module.AdminCohortsPage })));
 
 // Walk-up guest flow — public, no ProtectedRoute. Reached by scanning the printed QR at the counter.
-const GuestMenuPage = lazy(() => import("./pages/guest/GuestMenuPage").then(module => ({ default: module.GuestMenuPage })));
-const GuestCheckoutPage = lazy(() => import("./pages/guest/GuestCheckoutPage").then(module => ({ default: module.GuestCheckoutPage })));
-const GuestOrderStatusPage = lazy(() => import("./pages/guest/GuestOrderStatusPage").then(module => ({ default: module.GuestOrderStatusPage })));
-const GuestOrdersPage = lazy(() => import("./pages/guest/GuestOrdersPage").then(module => ({ default: module.GuestOrdersPage })));
+const GuestMenuPage = lazyRoute(() => import("./pages/guest/GuestMenuPage").then(module => ({ default: module.GuestMenuPage })));
+const GuestCheckoutPage = lazyRoute(() => import("./pages/guest/GuestCheckoutPage").then(module => ({ default: module.GuestCheckoutPage })));
+const GuestOrderStatusPage = lazyRoute(() => import("./pages/guest/GuestOrderStatusPage").then(module => ({ default: module.GuestOrderStatusPage })));
+const GuestOrdersPage = lazyRoute(() => import("./pages/guest/GuestOrdersPage").then(module => ({ default: module.GuestOrdersPage })));
 
 function RoleRedirect() {
   const { token, role } = useAuth();
@@ -35,6 +36,14 @@ function RoleRedirect() {
 }
 
 export default function App() {
+  // Reaching here means the shell and its first chunks loaded, so any earlier
+  // stale-deploy reload is spent business. Clearing it restores the one-shot
+  // allowance for the next deploy, which would otherwise be used up for the
+  // lifetime of the tab. See lib/lazyRoute.ts.
+  useEffect(() => {
+    clearChunkReloadFlag();
+  }, []);
+
   return (
     <>
       <NetworkStatus />
