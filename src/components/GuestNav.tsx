@@ -8,7 +8,7 @@ import { Logo } from "./Logo";
 export function GuestNav({ title, backTo }: { title: string; backTo?: string }) {
   return (
     <div className="nav-shell">
-      <nav className="w-full max-w-5xl flex items-center justify-between glass-panel nav-notch shadow-sm px-4 sm:px-6 py-3">
+      <nav className="w-full max-w-5xl flex items-center justify-between nav-notch shadow-sm px-4 sm:px-6 py-3">
       <div className="flex items-center gap-3 min-w-0">
         {backTo && (
           <Link

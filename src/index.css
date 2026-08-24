@@ -94,6 +94,21 @@ body {
 @utility nav-notch {
   --nav-notch: 1.75rem;
   position: relative;
+  /* This utility owns the bar's whole surface, which is why the nav elements
+     no longer carry `glass-panel`. Trying to layer the two meant relying on
+     utility source order to beat glass-panel's 0.95 alpha, and Tailwind does
+     not guarantee that ordering — measured in the browser, glass-panel still
+     won. Opaque is also the correct look here: a bar pinned to the top edge
+     has the whole page sliding under it, and at 0.95 with a backdrop blur the
+     content ghosted through as a moving smear. Translucency reads as depth
+     over a static backdrop and as a rendering fault over a scrolling one. */
+  background-color: #ffffff;
+  border-width: 1px;
+  border-style: var(--tw-border-style, solid);
+  border-color: rgba(0, 0, 0, 0.05);
+  /* After the shorthand, never before it: `border-width` resets all four sides.
+     The bar sits flush against the viewport's top edge, where a top border is
+     just a hairline artefact. */
   border-top-width: 0;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
@@ -107,7 +122,7 @@ body {
     top: 0;
     width: var(--nav-notch);
     height: var(--nav-notch);
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: #ffffff;
     pointer-events: none;
   }
 
@@ -125,7 +140,17 @@ body {
   }
 }
 
-/* Sticky centring shell for a nav-notch bar. */
+/* Sticky centring shell for a nav-notch bar.
+
+   The background is load-bearing, not decoration. The bar is inset by one ear
+   on each side, and without an opaque shell the page scrolled through those
+   two strips at the very top of the viewport — the bar looked detached from
+   the top edge.
+
+   It names the page-surface token rather than `inherit`: every page wrapper in
+   the app is `bg-surface-muted`, but the shell is not always its direct child
+   (the guest pages put an unstyled div in between), and `inherit` picks up
+   that transparent intermediate instead of the wrapper. */
 @utility nav-shell {
   position: sticky;
   top: 0;
@@ -134,6 +159,7 @@ body {
   justify-content: center;
   padding-left: 1.75rem;
   padding-right: 1.75rem;
+  background-color: var(--color-surface-muted);
 }
 
 @utility flat-shadow {
