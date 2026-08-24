@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 /**
  * Search field whose clear button dissolves the query instead of blanking it.
@@ -113,16 +113,32 @@ function toSegments(text: string): string[] {
   return text.split(/(\s+)/).filter((segment) => segment.length > 0);
 }
 
+/**
+ * The field's chrome. It lives here rather than at the call sites so every
+ * search box in the admin reads as the same control, and so the mirror's
+ * `padding: inherit` always lands on the input's text origin — pl-10 leaves
+ * exactly the room the magnifier occupies, pr-10 the room the clear button
+ * needs, and both layers inherit it for free.
+ *
+ * Matches the surrounding card language: white on the gray page, a 2xl radius,
+ * a hairline that firms up on hover, and a brand ring on focus instead of the
+ * browser outline.
+ */
+const FIELD_CLASS =
+  "group relative flex items-center h-11 rounded-xl bg-surface pl-10 pr-10 " +
+  "text-sm font-medium text-gray-900 shadow-sm ring-1 ring-gray-200 " +
+  "transition-[box-shadow,background-color] duration-150 " +
+  "hover:not-focus-within:ring-gray-300 focus-within:ring-2 focus-within:ring-brand-500 " +
+  "focus-within:shadow-[0_0_0_4px_rgba(239,68,68,0.10)]";
+
 export interface SearchInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   /** Required: the visible placeholder is aria-hidden decoration, so the field needs its own name. */
   label: string;
-  /** Box classes for the wrapper — border, radius, padding, surface, width. */
+  /** Layout classes only — width and flex behaviour. The chrome is the component's. */
   className?: string;
-  /** Optional decoration pinned inside the wrapper's left padding. */
-  leadingIcon?: ReactNode;
   inputMode?: "text" | "numeric" | "search";
   id?: string;
 }
@@ -133,7 +149,6 @@ export function SearchInput({
   placeholder,
   label,
   className = "",
-  leadingIcon,
   inputMode,
   id,
 }: SearchInputProps) {
@@ -143,10 +158,25 @@ export function SearchInput({
   const placeholderRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<number | null>(null);
+  const scrollRef = useRef(0);
 
   // The text the mirror keeps drawing after the input has already been emptied.
   // Null means "not clearing" — the mirror just follows `value`.
   const [frozen, setFrozen] = useState<string | null>(null);
+
+  /**
+   * A query longer than the field scrolls the real input, and the mirror has to
+   * scroll with it or the glyphs the user sees stop matching where the caret
+   * is. The offset is also what the dissolve starts from, so it is kept in a
+   * ref rather than state — the animation reads it every frame.
+   */
+  const syncScroll = useCallback(() => {
+    const input = inputRef.current;
+    const mirror = mirrorRef.current;
+    if (!input || !mirror) return;
+    scrollRef.current = input.scrollLeft;
+    mirror.style.transform = `translateX(${-input.scrollLeft}px)`;
+  }, []);
 
   const stop = useCallback(() => {
     if (frameRef.current !== null) {
@@ -157,6 +187,7 @@ export function SearchInput({
     const fake = placeholderRef.current;
     const glow = glowRef.current;
     if (mirror) mirror.style.cssText = "";
+    scrollRef.current = 0;
     if (fake) fake.style.cssText = "";
     if (glow) {
       glow.style.opacity = "";
@@ -202,6 +233,7 @@ export function SearchInput({
     // The glow stack alone lasts past the text: last word's stagger + envelope.
     const total = tuning.glowDelay + Math.max(0, rects.length - 1) * tuning.stagger + tuning.dur;
     const started = performance.now();
+    const scrollX = scrollRef.current;
     glow.style.opacity = "1";
     fake.style.opacity = "0";
 
@@ -210,7 +242,7 @@ export function SearchInput({
 
       const out = easeOutQuint(clamp01(elapsed / tuning.outDur));
       const lift = -tuning.outFly * out;
-      mirror.style.transform = `translateY(${lift}px)`;
+      mirror.style.transform = `translate(${-scrollX}px, ${lift}px)`;
       mirror.style.opacity = String(1 - out);
       mirror.style.filter = `blur(${tuning.blur * out}px)`;
 
@@ -267,6 +299,12 @@ export function SearchInput({
     onChange("");
   }, [onChange, reset, stop, value]);
 
+  // Runs after every committed value, since the input's scrollLeft only
+  // settles once the new text has laid out.
+  useLayoutEffect(() => {
+    if (frozen === null) syncScroll();
+  }, [frozen, syncScroll, value]);
+
   const handleChange = useCallback(
     (next: string) => {
       // Typing during a dissolve wins: kill the animation rather than let a
@@ -281,6 +319,7 @@ export function SearchInput({
   const clearing = frozen !== null;
   const wrapClass = [
     "t-clear",
+    FIELD_CLASS,
     clearing ? "is-clearing" : "",
     shown ? "has-value" : "",
     className,
@@ -290,7 +329,18 @@ export function SearchInput({
 
   return (
     <div ref={wrapRef} className={wrapClass}>
-      {leadingIcon}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors duration-150 group-focus-within:text-brand-600 z-[4]"
+      >
+        <circle cx="8.75" cy="8.75" r="5.25" />
+        <path d="m12.75 12.75 3.75 3.75" />
+      </svg>
       <input
         ref={inputRef}
         id={id}
@@ -298,6 +348,7 @@ export function SearchInput({
         inputMode={inputMode}
         value={value}
         onChange={(e) => handleChange(e.target.value)}
+        onScroll={syncScroll}
         onKeyDown={(e) => {
           if (e.key === "Escape" && value) {
             e.preventDefault();
@@ -326,7 +377,7 @@ export function SearchInput({
           would double-render underneath this layer the moment a clear lands,
           and it cannot be flown in. */}
       <div ref={placeholderRef} className="t-clear-placeholder" aria-hidden="true">
-        <span className="text-gray-400 font-medium">{placeholder}</span>
+        <span className="font-normal text-gray-400">{placeholder}</span>
       </div>
 
       <div ref={glowRef} className="t-clear-glow" aria-hidden="true" />
@@ -336,11 +387,19 @@ export function SearchInput({
         onClick={handleClear}
         aria-label={`Clear ${label.toLowerCase()}`}
         tabIndex={value ? 0 : -1}
-        className="t-clear-btn absolute right-2 top-1/2 -translate-y-1/2 grid h-6 w-6 place-items-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+        className="t-clear-btn absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
       >
-        <span aria-hidden="true" className="text-sm leading-none">
-          ✕
-        </span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className="h-3 w-3"
+        >
+          <path d="M5 5l10 10M15 5L5 15" />
+        </svg>
       </button>
     </div>
   );

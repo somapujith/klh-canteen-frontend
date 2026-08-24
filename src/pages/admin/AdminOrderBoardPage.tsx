@@ -310,12 +310,7 @@ export function AdminOrderBoardPage() {
               inputMode="numeric"
               placeholder="Search token #"
               label="Search by token number"
-              className="w-44 sm:w-52 rounded-2xl border border-gray-200 bg-surface pl-9 pr-9 py-2.5 text-sm font-semibold text-gray-800 focus-within:ring-2 focus-within:ring-brand-500"
-              leadingIcon={
-                <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 z-4 text-gray-400">
-                  ⌕
-                </span>
-              }
+              className="w-44 sm:w-52"
             />
             {!loading && orders.length > 0 && (
               <p className="text-sm font-medium text-gray-400 whitespace-nowrap">

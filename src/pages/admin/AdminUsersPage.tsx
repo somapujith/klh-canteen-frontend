@@ -180,13 +180,13 @@ export function AdminUsersPage() {
             onChange={setSearch}
             placeholder="Search by name, email, or roll number"
             label="Search users"
-            className="flex-1 rounded-xl border border-gray-300 bg-surface px-3 py-2 pr-9 text-sm focus-within:ring-2 focus-within:ring-brand-500/20"
+            className="flex-1"
           />
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as Role | "ALL")}
             aria-label="Filter by role"
-            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            className="h-11 rounded-2xl bg-surface px-3 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition-shadow hover:ring-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="ALL">All roles</option>
             <option value="SUPERADMIN">Superadmin</option>
@@ -197,7 +197,7 @@ export function AdminUsersPage() {
             value={activeFilter}
             onChange={(e) => setActiveFilter(e.target.value as ActiveFilter)}
             aria-label="Filter by status"
-            className="rounded-xl border border-gray-300 px-3 py-2 text-sm"
+            className="h-11 rounded-2xl bg-surface px-3 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 transition-shadow hover:ring-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="all">Active &amp; inactive</option>
             <option value="true">Active only</option>

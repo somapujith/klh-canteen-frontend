@@ -318,6 +318,15 @@ body {
   z-index: 2;
 }
 
+/* Text runs under the clear button rather than stopping at it — overflow
+   clips at the padding box, not the content box — so the last few characters
+   are faded out instead of colliding with the chip. */
+.t-clear-mirror,
+.t-clear-placeholder {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent calc(100% - 1.5rem));
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent calc(100% - 1.5rem));
+}
+
 .t-clear-mirror { opacity: 0; }
 .t-clear.has-value .t-clear-mirror,
 .t-clear.is-clearing .t-clear-mirror { opacity: 1; }
