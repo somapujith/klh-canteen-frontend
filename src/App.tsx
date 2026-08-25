@@ -13,6 +13,8 @@ const StudentMenuPage = lazyRoute(() => import("./pages/student/StudentMenuPage"
 const CheckoutPage = lazyRoute(() => import("./pages/student/CheckoutPage").then(module => ({ default: module.CheckoutPage })));
 const OrderTokenPage = lazyRoute(() => import("./pages/student/OrderTokenPage").then(module => ({ default: module.OrderTokenPage })));
 const OrderHistoryPage = lazyRoute(() => import("./pages/student/OrderHistoryPage").then(module => ({ default: module.OrderHistoryPage })));
+// Student Telegram link/unlink page. User: students only link/delink telegram.
+const TelegramSettingsPage = lazyRoute(() => import("./pages/student/TelegramSettingsPage").then(module => ({ default: module.TelegramSettingsPage })));
 const AdminMenuPage = lazyRoute(() => import("./pages/admin/AdminMenuPage").then(module => ({ default: module.AdminMenuPage })));
 const AdminStudentsPage = lazyRoute(() => import("./pages/admin/AdminStudentsPage").then(module => ({ default: module.AdminStudentsPage })));
 const AdminOrderBoardPage = lazyRoute(() => import("./pages/admin/AdminOrderBoardPage").then(module => ({ default: module.AdminOrderBoardPage })));
@@ -67,6 +69,7 @@ export default function App() {
             <Route path="/student/checkout" element={<CheckoutPage />} />
             <Route path="/student/order/:id" element={<OrderTokenPage />} />
             <Route path="/student/orders" element={<OrderHistoryPage />} />
+            <Route path="/student/telegram" element={<TelegramSettingsPage />} />
           </Route>
 
           <Route element={<ProtectedRoute role="ADMIN" />}>
