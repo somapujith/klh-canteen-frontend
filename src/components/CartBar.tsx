@@ -149,16 +149,26 @@ export function CartBar({
         >
           {expanded && (
             <div id="cart-sheet" className="sheet-up border-b border-gray-100">
-              <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {count} item{count === 1 ? "" : "s"} in cart
-                </p>
+              <div className="flex items-center justify-between px-2 pt-2 pb-2 sm:px-3">
+                {/* Back rather than the old right-aligned "Hide" link: the sheet
+                    covers the menu on phones, so leaving it is a navigation
+                    move and should look like one. Same chevron and placement as
+                    the back control in Navbar/GuestNav, so every way out of a
+                    screen in this app reads the same. It still just collapses
+                    the sheet — close() keeps Escape, outside-click and
+                    focus-restore behaving exactly as before. */}
                 <button
                   onClick={() => close()}
-                  className="min-h-11 min-w-11 text-xs font-semibold text-gray-600 hover:text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                  className="flex min-h-11 items-center gap-1 rounded-lg pl-1.5 pr-2.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
                 >
-                  Hide
+                  <svg className="h-4 w-4 shrink-0" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back
                 </button>
+                <p className="pr-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {count} item{count === 1 ? "" : "s"} in cart
+                </p>
               </div>
               <ul ref={listRef} className="max-h-[min(40vh,20rem)] sm:max-h-[min(50vh,26rem)] overflow-y-auto overscroll-contain scroll-py-2 px-2 pb-2 space-y-1">
                 {lines.map((line, index) => (

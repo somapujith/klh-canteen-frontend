@@ -100,11 +100,28 @@ describe("disclosure", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Increase Samosa" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
     expect(toggle()).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Increase Samosa" })).not.toBeInTheDocument();
+  });
+
+  /**
+   * The sheet covers the menu on phones, so leaving it is a navigation move.
+   * One way out, not two: the old right-aligned "Hide" link was replaced
+   * rather than joined, so a second control cannot drift out of step with it.
+   */
+  it("offers exactly one way out of the sheet, and it returns focus to the toggle", () => {
+    renderCart();
+    expand();
+
+    expect(screen.queryByRole("button", { name: "Hide" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(toggle()).toHaveAttribute("aria-expanded", "false");
+    expect(toggle()).toHaveFocus();
   });
 });
 
