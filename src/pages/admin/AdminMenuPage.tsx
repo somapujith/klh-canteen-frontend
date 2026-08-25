@@ -47,7 +47,12 @@ export function AdminMenuPage() {
 
   const loadMenu = useCallback(async () => {
     try {
-      const data = await apiClient.get<{ categories: Category[] }>("/menu");
+      // admin=true is load-bearing twice over: it keeps switched-off items in
+      // the response (without it, hiding an item removed it from the only page
+      // that could un-hide it), and it returns the physical stockQty rather
+      // than the customer-facing "still buyable" figure, which is the number an
+      // admin restocks against.
+      const data = await apiClient.get<{ categories: Category[] }>("/menu?admin=true");
       setCategories(data.categories);
       setLoadError(null);
     } catch (err) {

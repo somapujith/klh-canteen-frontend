@@ -22,7 +22,7 @@ export function AdminDashboardPage() {
   }, [token]);
 
   const loadLowStock = useCallback(() => {
-    return apiClient.get<{ categories: Category[] }>("/menu").then((data) => {
+    return apiClient.get<{ categories: Category[] }>("/menu?admin=true").then((data) => {
       const items: MenuItem[] = [];
       data.categories.forEach((cat) => {
         cat.items.forEach((item) => {
@@ -79,7 +79,7 @@ export function AdminDashboardPage() {
   async function exportInventory() {
     setIsExporting(true);
     try {
-      const { categories } = await apiClient.get<{ categories: Category[] }>("/menu");
+      const { categories } = await apiClient.get<{ categories: Category[] }>("/menu?admin=true");
       const rows: string[][] = [];
       categories.forEach((cat) => {
         cat.items.forEach((item) => {
