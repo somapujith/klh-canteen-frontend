@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Logo } from "./Logo";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -9,9 +9,16 @@ interface NavbarProps {
   /** Item count for the header cart button. Omit to hide the button entirely. */
   cartCount?: number;
   onCartClick?: () => void;
+  /**
+   * Destination for the header back arrow, mirroring GuestNav. Omit on a
+   * landing page — a back arrow that goes nowhere new is worse than none.
+   * A plain link, not history.back(), so the arrow behaves the same whether
+   * the page was navigated to or opened cold from a pasted URL.
+   */
+  backTo?: string;
 }
 
-export function Navbar({ title, cartCount, onCartClick }: NavbarProps) {
+export function Navbar({ title, cartCount, onCartClick, backTo }: NavbarProps) {
   const { name, logout } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -41,9 +48,20 @@ export function Navbar({ title, cartCount, onCartClick }: NavbarProps) {
   return (
     <div className="nav-shell">
       <nav className="w-full max-w-5xl flex items-center justify-between nav-notch shadow-sm px-4 sm:px-6 py-3">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        {backTo && (
+          <Link
+            to={backTo}
+            aria-label="Back"
+            className="shrink-0 -ml-1 p-1.5 rounded-full text-gray-500 hover:bg-surface-muted hover:text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          >
+            <svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+        )}
         <Logo className="h-8 sm:h-9 shrink-0 hover-scale" />
-        <span className="font-semibold text-gray-800 tracking-tight">{title}</span>
+        <span className="font-semibold text-gray-800 tracking-tight truncate">{title}</span>
       </div>
       
       <div className="flex items-center gap-1 sm:gap-2">

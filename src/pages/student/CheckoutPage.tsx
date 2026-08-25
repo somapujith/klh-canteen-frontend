@@ -40,7 +40,7 @@ export function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-surface-muted">
-      <Navbar title="Checkout" />
+      <Navbar title="Checkout" backTo="/student" />
       <div className="p-4 space-y-3 max-w-lg mx-auto">
         {items.length === 0 && (
           <div className="text-center py-12 space-y-4">

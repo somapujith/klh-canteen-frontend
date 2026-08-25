@@ -75,7 +75,7 @@ export function OrderTokenPage() {
   if (error && orders.length === 0) {
     return (
       <div className="min-h-screen bg-surface-muted fade-in">
-        <Navbar title="Your Token" />
+        <Navbar title="Your Token" backTo="/student" />
         <div className="mx-auto w-full max-w-sm px-4 pb-16 pt-10 sm:max-w-md">
           <div role="alert" className="rounded-2xl bg-surface p-6 text-center flat-shadow">
             <h1 className="text-lg font-bold tracking-tight text-gray-900">Could not load your token</h1>
@@ -108,7 +108,7 @@ export function OrderTokenPage() {
 
   return (
     <div className="min-h-screen bg-surface-muted fade-in">
-      <Navbar title="Your Token" />
+      <Navbar title="Your Token" backTo="/student" />
       <div className="mx-auto w-full max-w-sm px-4 pb-16 pt-6 sm:max-w-md">
         <header className="text-center">
           <h1 className="text-xl font-bold tracking-tight text-gray-900">
@@ -311,7 +311,7 @@ function StatusPill({ status }: { status: string }) {
 function TokenPageSkeleton() {
   return (
     <div className="min-h-screen bg-surface-muted fade-in">
-      <Navbar title="Your Token" />
+      <Navbar title="Your Token" backTo="/student" />
       <div className="mx-auto w-full max-w-sm px-4 pb-16 pt-6 sm:max-w-md" role="status" aria-live="polite">
         <span className="sr-only">Loading your token…</span>
         <div aria-hidden="true" className="animate-pulse">

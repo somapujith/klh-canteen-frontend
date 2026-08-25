@@ -42,7 +42,7 @@ export function OrderHistoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar title="Order History" />
+      <Navbar title="Order History" backTo="/student" />
       <div className="max-w-lg mx-auto p-4 space-y-3">
         {orders.length === 0 && <p className="text-center text-gray-500 py-12">No orders yet.</p>}
         {orders.map((order) => (
