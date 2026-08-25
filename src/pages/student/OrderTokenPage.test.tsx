@@ -1,5 +1,5 @@
 import { it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "../../context/AuthContext";
 import { ToastProvider } from "../../context/ToastContext";
@@ -128,4 +128,45 @@ it("refetches when the stream says local state can no longer be trusted", async 
 
   await waitFor(() => expect(screen.getByTestId("order-status")).toHaveTextContent(/collected/i));
   expect((apiClient.get as any).mock.calls.length).toBe(2);
+});
+
+/**
+ * The number starts blurred and reveals on demand. It used to be a one-way
+ * door: `revealed` was set true by "Show token" and never set back, so a
+ * student who had shown their number at the counter had no way to cover it
+ * again short of reloading the page.
+ */
+it("hides the token again after it has been revealed", async () => {
+  captured = null;
+  // jsdom ships no matchMedia, and TokenReel reads it on reveal to honour
+  // prefers-reduced-motion. No other test in this file reveals the number, so
+  // the stub is declared here rather than globally.
+  vi.stubGlobal("matchMedia", (media: string) => ({
+    media,
+    matches: false,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }));
+  (apiClient.get as any).mockResolvedValue(pendingOrder);
+
+  renderTokenPage();
+
+  const show = await screen.findByRole("button", { name: /show token/i });
+  // Nothing to hide while it is already hidden.
+  expect(screen.queryByRole("button", { name: /hide token/i })).not.toBeInTheDocument();
+
+  fireEvent.click(show);
+
+  expect(screen.getByRole("button", { name: /hide token/i })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /show token/i })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: /hide token/i }));
+
+  // Back to the starting state, and re-revealable.
+  expect(screen.getByRole("button", { name: /show token/i })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /hide token/i })).not.toBeInTheDocument();
 });

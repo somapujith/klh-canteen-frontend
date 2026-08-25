@@ -169,7 +169,7 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
               start, so the number is hidden for everyone until it is asked for. */}
           {revealed ? (
             <span className="sr-only" aria-live="polite">
-              Token number {digits.split("").join(" ")}
+              Token number {digits.split("").join(" ")}. Use the hide token button to hide it again.
             </span>
           ) : (
             <span className="sr-only">Token number hidden. Use the show token button to reveal it.</span>
@@ -221,6 +221,22 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
             </>
           )}
         </p>
+
+        {/* Deliberately NOT the mirror of "Show token", which is an overlay
+            centred on the number: a hide control in that position would cover
+            the very digits the student is holding up to the counter. It sits
+            below the copy instead, quiet enough not to compete with the number
+            and reachable once the handover is done. */}
+        {revealed && (
+          <button
+            type="button"
+            onClick={() => setRevealed(false)}
+            className="mx-auto mt-3 flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-bold text-gray-500 transition-colors hover:bg-surface-muted hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+          >
+            <EyeOffIcon />
+            Hide token
+          </button>
+        )}
       </div>
 
       {/* Perforation — the notches make each stacked ticket read as one object. */}
@@ -283,6 +299,18 @@ function EyeIcon() {
         d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12s-3.75 6.75-9.75 6.75S2.25 12 2.25 12Z"
       />
       <circle cx="12" cy="12" r="2.75" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 3l18 18M10.6 10.6a2.75 2.75 0 003.8 3.8M9.9 5.4A9.6 9.6 0 0112 5.25c6 0 9.75 6.75 9.75 6.75a17 17 0 01-3.2 4.05M6.5 6.55A17 17 0 002.25 12S6 18.75 12 18.75c1 0 1.93-.19 2.8-.5"
+      />
     </svg>
   );
 }
