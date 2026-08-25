@@ -15,13 +15,21 @@ export function AdminStudentsPage() {
   const [csv, setCsv] = useState("");
   const [results, setResults] = useState<ImportResult[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleUpload(e: FormEvent) {
     e.preventDefault();
     setUploading(true);
+    setError(null);
     try {
       const res = await apiClient.post<{ results: ImportResult[] }>("/admin/students/bulk", { csv }, token ?? undefined);
       setResults(res.results);
+    } catch (err) {
+      // Without this the request used to fail into a bare `finally`: the
+      // spinner stopped, the results table stayed empty, and the operator had
+      // no way to tell a rejected import from an import of nothing.
+      setError(err instanceof Error ? err.message : "Import failed. Check the CSV and try again.");
+      setResults([]);
     } finally {
       setUploading(false);
     }
@@ -50,6 +58,12 @@ export function AdminStudentsPage() {
           >
             {uploading ? "Uploading..." : "Upload"}
           </button>
+
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
         </form>
 
         {results.length > 0 && (
