@@ -6,42 +6,21 @@ import { SearchInput } from "../../components/SearchInput";
 import { useSSE, type OrderCreatedDelta, type OrderSeenDelta, type OrderStatusDelta } from "../../hooks/useSSE";
 import { formatWindowTime } from "../../lib/collectionWindows";
 import { formatOrderNumber } from "../../lib/orderNumber";
+// Shared with the order log so the two views cannot drift apart again — the
+// log's guest crash came from exactly that drift. See lib/adminOrders.ts.
+import {
+  customerLabel,
+  type AdminOrderBase,
+  type OrderCustomer,
+  type OrderStatus,
+  type OrdersEnvelope,
+} from "../../lib/adminOrders";
 
-type OrderStatus = "PENDING" | "PREPARING" | "COOKED" | "DELIVERED";
-
-/**
- * Orders now come from either a student account or a walk-up guest, so the board
- * reads `customer`. The legacy `student` field still exists but is NULL on guest
- * orders — reading it would crash the board the moment someone orders at the counter.
- */
-interface OrderCustomer {
-  type: "STUDENT" | "GUEST";
-  id: string | null;
-  name: string | null;
-  rollNumber: string | null;
-  phone: string | null;
-}
-
-interface BoardOrder {
-  id: string;
-  orderNumber: number;
-  status: OrderStatus;
-  seenByAdmin: boolean;
-  totalAmount: string;
-  createdAt: string;
-  collectionAt: string | null;
-  customer: OrderCustomer;
-}
+type BoardOrder = AdminOrderBase;
 
 interface SelectedOrder extends BoardOrder {
   items: { quantity: number; menuItem: { name: string } }[];
   isLockedByOther?: boolean;
-}
-
-interface OrdersEnvelope {
-  data: BoardOrder[];
-  nextCursor: string | null;
-  hasMore: boolean;
 }
 
 const STATUS_STEPS: { target: Exclude<OrderStatus, "PENDING">; label: string }[] = [
@@ -62,10 +41,6 @@ function statusIndex(status: OrderStatus): number {
 
 /** One screen of tiles. The board used to load every order ever placed. */
 const PAGE_SIZE = 48;
-
-function customerLabel(customer: OrderCustomer): string {
-  return customer.name?.trim() || (customer.type === "GUEST" ? "Walk-up guest" : "Unknown student");
-}
 
 /** ORDER_CREATED deltas carry flat name fields; normalise them into the same shape as the REST payload. */
 function boardOrderFromDelta(delta: OrderCreatedDelta): BoardOrder {
@@ -124,7 +99,7 @@ export function AdminOrderBoardPage() {
    * normalise both shapes here so a deploy mismatch degrades to "no
    * pagination" instead of crashing the board on `orders.length`.
    */
-  function normalizeEnvelope(response: OrdersEnvelope | BoardOrder[]): OrdersEnvelope {
+  function normalizeEnvelope(response: OrdersEnvelope<BoardOrder> | BoardOrder[]): OrdersEnvelope<BoardOrder> {
     if (Array.isArray(response)) {
       return { data: response, nextCursor: null, hasMore: false };
     }
@@ -134,7 +109,7 @@ export function AdminOrderBoardPage() {
   /** Full refetch of the first page. The realtime fallback, not the steady state. */
   const fetchFirstPage = useCallback(() => {
     return apiClient
-      .get<OrdersEnvelope | BoardOrder[]>(
+      .get<OrdersEnvelope<BoardOrder> | BoardOrder[]>(
         `/admin/orders?format=envelope&active=true&limit=${PAGE_SIZE}`,
         token ?? undefined
       )
@@ -154,7 +129,7 @@ export function AdminOrderBoardPage() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const response = await apiClient.get<OrdersEnvelope | BoardOrder[]>(
+      const response = await apiClient.get<OrdersEnvelope<BoardOrder> | BoardOrder[]>(
         `/admin/orders?format=envelope&active=true&limit=${PAGE_SIZE}&cursor=${encodeURIComponent(nextCursor)}`,
         token ?? undefined
       );
