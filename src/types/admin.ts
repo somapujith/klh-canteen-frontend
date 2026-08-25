@@ -116,6 +116,12 @@ export interface MenuItem {
 export interface Category {
   id: string;
   name: string;
+  /**
+   * Position on the menu, ascending. The API defaults it to 0, so seeded
+   * categories can all share a value — anything reordering them must renumber
+   * densely rather than swap two numbers inside a set of duplicates.
+   */
+  sortOrder: number;
   items: MenuItem[];
 }
 
