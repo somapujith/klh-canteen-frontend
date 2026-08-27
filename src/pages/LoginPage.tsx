@@ -1,15 +1,45 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, SESSION_EXPIRED_KEY } from "../context/AuthContext";
 import type { School } from "../context/AuthContext";
-import { Logo } from "../components/Logo";
+import { Logo, BrandMark } from "../components/Logo";
 import { landingPathFor } from "../lib/landing";
 
 const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK Institution" };
 
+/* Shared frame for both login steps, so the Raja's Bakery mark keeps the exact
+   same size when the school picker swaps out for the form — one wrapper, one
+   <BrandMark>, no re-mount. Its vertical position can still shift a little
+   between steps: the column is `m-auto`-centred and the two steps' cards
+   differ in height, so the whole column re-centres. Only the mark's size is
+   guaranteed stable, not its position.
+
+   `m-auto` on the inner column plus `py-*` on the wrapper, rather than the
+   `items-center justify-center` this page used before. The KLH card (form +
+   demo quick-fill panel) is taller than a short viewport — measured at 875px
+   against a 560px phone and a 390px landscape phone. Chrome does not clip the
+   overflow either way (both put the logo at a reachable scroll-top), but with
+   plain centring the logo lands at top: 0, jammed against the viewport edge
+   with no breathing room; auto margins collapse to 0 and hand the column the
+   wrapper's padding instead, so it keeps a 32px gutter when it overflows and
+   stays optically centred when it does not. */
+function LoginShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-surface-muted flex flex-col px-4 py-8 sm:py-12 fade-in">
+      <div className="m-auto w-full max-w-sm flex flex-col items-center">
+        {/* One axis constrained only — the artwork is portrait (366x422) and
+            would squash if width were pinned too. `shrink-0` stops the flex
+            column from compressing it when the card is tall. */}
+        <BrandMark className="h-16 sm:h-24 w-auto shrink-0 mb-4 sm:mb-8 rise-in" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function SchoolSelect({ onSelect }: { onSelect: (school: School) => void }) {
   return (
-    <div className="w-full max-w-sm bg-surface rounded-2xl flat-shadow p-8 space-y-8 fade-in">
+    <div className="w-full bg-surface rounded-2xl flat-shadow p-8 space-y-8">
       <div className="text-center space-y-2">
         <h2 className="text-xl font-semibold text-gray-800">Welcome</h2>
         <p className="text-sm text-gray-500">Choose your institution to sign in</p>
@@ -65,18 +95,21 @@ export function LoginPage() {
 
   if (!school) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-muted px-4">
+      <LoginShell>
         <SchoolSelect onSelect={setSchool} />
-      </div>
+      </LoginShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-muted px-4 fade-in">
-      <div className="w-full max-w-sm bg-surface rounded-2xl flat-shadow p-8 space-y-8">
-        <div className="flex flex-col items-center gap-2 mb-2">
-          <Logo school={school} className="h-20 hover-scale" />
-          <h2 className="text-xl font-semibold text-gray-800 mt-2">Welcome Back</h2>
+    <LoginShell>
+      <div className="w-full bg-surface rounded-2xl flat-shadow p-8 space-y-8 rise-in">
+        <div className="flex flex-col items-center gap-2">
+          {/* Stepped down from h-20: the Raja's mark above the card is now the
+              primary brand cue, so the institution logo reads as secondary —
+              and two full-size logos stacked overflowed a 667px phone. */}
+          <Logo school={school} className="h-14 sm:h-16 w-auto" />
+          <h2 className="text-xl font-semibold text-gray-800">Welcome Back</h2>
           <p className="text-sm text-gray-500 text-center">Sign in to your {SCHOOL_LABEL[school]} canteen account</p>
           <button
             type="button"
@@ -86,7 +119,7 @@ export function LoginPage() {
               setPassword("");
               setError(null);
             }}
-            className="text-xs text-brand-600 hover:underline mt-1"
+            className="text-xs text-gray-500 hover:text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded"
           >
             Not {SCHOOL_LABEL[school]}? Change school
           </button>
@@ -190,6 +223,6 @@ export function LoginPage() {
           </div>
         )}
       </div>
-    </div>
+    </LoginShell>
   );
 }
