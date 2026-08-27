@@ -40,7 +40,13 @@ export function AdminMenuPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MenuFilter>("ALL");
 
-  const [itemModal, setItemModal] = useState<{ editing: MenuItem | null; categoryId?: string } | null>(null);
+  // `editingId` rather than a snapshotted MenuItem: a realtime MENU_UPDATE can
+  // replace `categories` (e.g. another admin swaps this item's photo) while
+  // the modal is still open. Storing only the id and re-deriving `editing`
+  // from the live list below means the modal always sees the current item
+  // instead of freezing whatever was true the moment Edit was clicked.
+  const [itemModal, setItemModal] = useState<{ editingId: string | null; categoryId?: string } | null>(null);
+  const editingItem = itemModal?.editingId ? findItem(categories, itemModal.editingId) : null;
   const [categoryModal, setCategoryModal] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
@@ -264,7 +270,7 @@ export function AdminMenuPage() {
           onQueryChange={setQuery}
           filter={filter}
           onFilterChange={setFilter}
-          onAddItem={() => setItemModal({ editing: null })}
+          onAddItem={() => setItemModal({ editingId: null })}
           onAddCategory={() => setCategoryModal(true)}
           density={density}
           onDensityChange={setDensity}
@@ -322,9 +328,9 @@ export function AdminMenuPage() {
                 onRename={(name) => renameCategory(category.id, name)}
                 onDelete={() => setPending({ kind: "deleteCategory", category })}
                 onBulk={(isAvailable) => setPending({ kind: "bulk", category, isAvailable })}
-                onAddItem={() => setItemModal({ editing: null, categoryId: category.id })}
+                onAddItem={() => setItemModal({ editingId: null, categoryId: category.id })}
                 onPatchItem={patchItem}
-                onEditItem={(item) => setItemModal({ editing: item })}
+                onEditItem={(item) => setItemModal({ editingId: item.id })}
                 onDeleteItem={(item) => setPending({ kind: "deleteItem", item })}
               />
             ))}
@@ -334,13 +340,13 @@ export function AdminMenuPage() {
 
       {itemModal && (
         <MenuItemFormModal
-          editing={itemModal.editing}
+          editing={editingItem}
           categories={categories}
           defaultCategoryId={itemModal.categoryId}
           token={token}
           onClose={() => setItemModal(null)}
           onSaved={() => {
-            const wasEditing = itemModal.editing !== null;
+            const wasEditing = itemModal.editingId !== null;
             setItemModal(null);
             showToast(wasEditing ? "Item updated" : "Item added", "success");
             void loadMenu();

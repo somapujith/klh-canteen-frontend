@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
+import { MenuCardImage } from "../../components/MenuCardImage";
 import { useSSE, type StockDelta } from "../../hooks/useSSE";
 import type { AdminOrder, Category, MenuItem } from "../../types/admin";
 
@@ -214,7 +215,7 @@ export function AdminDashboardPage() {
               {lowStockItems.map(item => (
                 <div key={item.id} className="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-3">
-                    <img src={item.imageUrl} alt={item.name} loading="lazy" decoding="async" className="h-10 w-10 rounded-lg object-cover" />
+                    <MenuCardImage item={item} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
                     <div>
                       <div className="text-sm font-semibold text-gray-900">{item.name}</div>
                       <div className="text-xs font-medium text-red-600">{item.stockQty} left</div>

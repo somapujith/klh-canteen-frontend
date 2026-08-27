@@ -5,6 +5,7 @@ import { ensureGuestSession } from "../../lib/guestSession";
 import type { MenuCategory } from "../../lib/menu";
 import { GuestNav } from "../../components/GuestNav";
 import { SkeletonCard } from "../../components/LoadingState";
+import { MenuCardImage } from "../../components/MenuCardImage";
 import { useGuestCart } from "../../hooks/useGuestCart";
 import { CartBar } from "../../components/CartBar";
 
@@ -126,11 +127,8 @@ export function GuestMenuPage() {
                 className="bg-surface rounded-2xl flat-shadow hover:flat-shadow-hover transition-all duration-300 overflow-hidden flex flex-col group"
               >
                 <div className="relative overflow-hidden">
-                  <img
-                    src={item.imageUrl}
-                    alt={item.name}
-                    loading="lazy"
-                    decoding="async"
+                  <MenuCardImage
+                    item={item}
                     className={`aspect-[4/3] w-full object-cover transition-transform duration-500 ${
                       soldOut ? "opacity-50 grayscale" : "group-hover:scale-105"
                     }`}

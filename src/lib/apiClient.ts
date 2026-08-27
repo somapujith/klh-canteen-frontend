@@ -45,20 +45,12 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, token, headers, signal } = options;
-
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal,
-  });
-
+/**
+ * Turns a Response into a value or an ApiClientError. Shared by the JSON and
+ * the multipart paths so session expiry and the `{ error: { code, message } }`
+ * envelope are handled identically however the request was framed.
+ */
+async function unwrap<T>(res: Response, token?: string): Promise<T> {
   if (!res.ok) {
     // A 401 on a request that carried a JWT means the session is over. A 401
     // with no token is a failed login attempt and must NOT log anyone out, and
@@ -88,11 +80,62 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   return res.json() as Promise<T>;
 }
 
+async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  const { body, token, headers, signal } = options;
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
+  });
+
+  return unwrap<T>(res, token);
+}
+
+/**
+ * Multipart sibling of `request`, for the one thing that is not JSON: menu item
+ * image uploads.
+ *
+ * It is a separate path rather than a flag on `request` because `request`
+ * stringifies its body and pins Content-Type to application/json — both of
+ * which are exactly wrong here. Note what is NOT set below: Content-Type. The
+ * browser derives it from the FormData together with the multipart boundary it
+ * generated; writing the header by hand omits that boundary and the server then
+ * sees a single unparseable part.
+ */
+async function upload<T>(
+  method: string,
+  path: string,
+  form: FormData,
+  options: Omit<RequestOptions, "body"> = {}
+): Promise<T> {
+  const { token, headers, signal } = options;
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    body: form,
+    signal,
+  });
+
+  return unwrap<T>(res, token);
+}
+
 export const apiClient = {
   get: <T>(path: string, token?: string) => request<T>("GET", path, { token }),
   post: <T>(path: string, body: unknown, token?: string) => request<T>("POST", path, { body, token }),
   patch: <T>(path: string, body: unknown, token?: string) => request<T>("PATCH", path, { body, token }),
   delete: <T>(path: string, token?: string) => request<T>("DELETE", path, { token }),
+  /** POSTs `multipart/form-data`. See `upload` above for why it is not `post`. */
+  upload: <T>(path: string, form: FormData, token?: string) => upload<T>("POST", path, form, { token }),
   /** Escape hatch for calls that need custom headers or an abort signal. */
   request,
 };

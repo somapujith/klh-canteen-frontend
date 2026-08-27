@@ -9,7 +9,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "e2e": "playwright test",
-    "load": "node e2e/load/run.mjs"
+    "load": "node e2e/load/run.mjs",
+    "typecheck": "tsc -b",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.2",

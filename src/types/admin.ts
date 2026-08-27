@@ -106,7 +106,22 @@ export interface AuditLogEntry {
 export interface MenuItem {
   id: string;
   name: string;
-  imageUrl: string;
+  /**
+   * Legacy pasted link, kept only for items created before uploads existed.
+   * Null for anything added since. New images go through `imageHash`; nothing
+   * in the UI writes this field any more.
+   */
+  imageUrl: string | null;
+  /**
+   * Content address of the image stored in Postgres. Present once a file has
+   * been uploaded for this item, and it CHANGES on every upload — which is what
+   * makes `/menu/items/:id/image/:hash` safe to cache forever: a new picture is
+   * a new URL, so no cache anywhere has to be invalidated.
+   *
+   * Always resolve through `menuImageSrc()` rather than reading either field
+   * directly — the fallback order lives there, once.
+   */
+  imageHash: string | null;
   price: string;
   stockQty: number;
   categoryId: string;

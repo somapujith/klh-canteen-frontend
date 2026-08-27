@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MenuItem } from "../../../types/admin";
+import { menuImageSrc } from "../../../lib/menu";
 import {
   isValidPrice,
   itemStatus,
@@ -37,20 +38,24 @@ export function MenuItemRow({ item, density, onPatch, onEdit, onDelete }: Props)
   const style = STATUS_STYLE[status];
   const compact = density === "compact";
 
+  const imageSrc = menuImageSrc(item, item.id);
+
   /**
-   * Menu images are pasted URLs in v1 — there is no upload pipeline and nothing
-   * validates that the address still resolves. A dead link used to render as
-   * the browser's broken-image glyph, which reads as "this item is broken"
-   * rather than "this picture is missing". Once a URL has failed we stop
-   * asking for it and draw a neutral placeholder instead.
+   * Uploaded images are served from our own database and effectively cannot
+   * 404, but legacy pasted URLs can go dead at any time, and a freshly uploaded
+   * image can be requested at a hash that is one push out of date. Either way a
+   * failure used to render as the browser's broken-image glyph, which reads as
+   * "this item is broken" rather than "this picture is missing". Once a source
+   * has failed we stop asking for it and draw a neutral placeholder instead.
    */
   const [imageFailed, setImageFailed] = useState(false);
 
-  // A corrected URL deserves another attempt; without this the placeholder
-  // would persist for the rest of the session after any single failure.
+  // A new source deserves another attempt — including the new hash after an
+  // upload; without this the placeholder would persist for the rest of the
+  // session after any single failure.
   useEffect(() => {
     setImageFailed(false);
-  }, [item.imageUrl]);
+  }, [imageSrc]);
 
   // Both fields follow the server until the admin touches them. `null` means
   // "no local edit in flight" — which is also what an SSE stock push needs, so
@@ -103,9 +108,9 @@ export function MenuItemRow({ item, density, onPatch, onEdit, onDelete }: Props)
     >
       {/* Identity */}
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        {item.imageUrl && !imageFailed ? (
+        {imageSrc && !imageFailed ? (
           <img
-            src={item.imageUrl}
+            src={imageSrc}
             alt=""
             loading="lazy"
             onError={() => setImageFailed(true)}

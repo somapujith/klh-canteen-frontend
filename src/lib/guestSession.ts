@@ -22,7 +22,14 @@ export interface GuestOrderLine {
   id: string;
   quantity: number;
   priceAtOrder: string;
-  menuItem: { id: string; name: string; imageUrl: string };
+  /**
+   * Both image fields, mirroring `MenuItem` — an order line is a snapshot of a
+   * menu item and must be resolvable through `menuImageSrc(line.menuItem,
+   * line.menuItem.id)` like any other. Nothing renders it today (GuestOrderCard
+   * lists names and quantities only), so the fields exist to keep the shape
+   * honest rather than to feed a call site.
+   */
+  menuItem: { id: string; name: string; imageUrl: string | null; imageHash?: string | null };
 }
 
 export interface GuestOrder {
