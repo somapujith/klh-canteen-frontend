@@ -23,22 +23,6 @@ interface SelectedOrder extends BoardOrder {
   isLockedByOther?: boolean;
 }
 
-const STATUS_STEPS: { target: Exclude<OrderStatus, "PENDING">; label: string }[] = [
-  { target: "COOKED", label: "Order Prepared" },
-  { target: "DELIVERED", label: "Collected" },
-];
-
-const STATUS_ORDER: OrderStatus[] = ["PENDING", "COOKED", "DELIVERED"];
-
-/**
- * PREPARING is retired from the flow, but orders placed before the change can
- * still be sitting in it. Treat them as pre-COOKED so the board can finish
- * them instead of stranding them with every button disabled.
- */
-function statusIndex(status: OrderStatus): number {
-  return status === "PREPARING" ? 0 : STATUS_ORDER.indexOf(status);
-}
-
 /** One screen of tiles. The board used to load every order ever placed. */
 const PAGE_SIZE = 48;
 
@@ -215,31 +199,30 @@ export function AdminOrderBoardPage() {
     }
   }
 
-  async function handleStatusChange(target: Exclude<OrderStatus, "PENDING">) {
+  // The board only exposes one button now — "Food collected" — but the
+  // backend still enforces its two-step flow (PENDING/PREPARING -> COOKED ->
+  // DELIVERED), so a PENDING order needs the COOKED hop fired first before
+  // DELIVERED will be accepted. Walking both from one click keeps that
+  // backend contract (and its stock-decrement guarantees) untouched.
+  async function handleMarkCollected() {
     if (!selectedOrder) return;
     const orderId = selectedOrder.id;
     setUpdatingStatus(true);
     setSelectError(null);
     try {
-      const updated = await apiClient.patch<SelectedOrder>(
-        `/admin/orders/${orderId}/status`,
-        { status: target },
-        token ?? undefined
-      );
-
-      if (target === "DELIVERED") {
-        removeOrder(orderId);
-      } else {
-        // Merge rather than replace. The board renders `customer` and `items`, and
-        // a response that ever omits them would otherwise blank the screen in the
-        // middle of service — the one moment the kitchen cannot recover from.
-        setSelectedOrder((current) =>
-          current && current.id === orderId ? { ...current, ...updated, status: updated.status ?? target } : current
-        );
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status: updated.status ?? target } : o))
+      if (selectedOrder.status !== "COOKED") {
+        await apiClient.patch<SelectedOrder>(
+          `/admin/orders/${orderId}/status`,
+          { status: "COOKED" },
+          token ?? undefined
         );
       }
+      await apiClient.patch<SelectedOrder>(
+        `/admin/orders/${orderId}/status`,
+        { status: "DELIVERED" },
+        token ?? undefined
+      );
+      removeOrder(orderId);
     } catch (err) {
       setSelectError(
         err instanceof ApiClientError && err.status === 409
@@ -253,8 +236,6 @@ export function AdminOrderBoardPage() {
       setUpdatingStatus(false);
     }
   }
-
-  const currentIndex = selectedOrder ? statusIndex(selectedOrder.status) : -1;
 
   // Token search is a filter over what the board has already loaded. Digits
   // only, and matched against the padded form too so typing "0042" or "42"
@@ -431,29 +412,13 @@ export function AdminOrderBoardPage() {
                 </ul>
 
                 <div className="flex flex-col gap-3 mt-auto">
-                  {STATUS_STEPS.map((step, idx) => {
-                    const targetIndex = idx + 1;
-                    const isCompleted = targetIndex <= currentIndex;
-                    const isEnabled = targetIndex === currentIndex + 1;
-
-                    return (
-                      <button
-                        key={step.target}
-                        onClick={() => handleStatusChange(step.target)}
-                        disabled={!isEnabled || updatingStatus}
-                        className={`w-full py-6 rounded-2xl text-xl font-black transition-all flex items-center justify-center gap-3 ${
-                          isCompleted
-                            ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                            : isEnabled
-                            ? "bg-brand-600 hover:bg-brand-700 text-white flat-shadow hover-scale disabled:opacity-60"
-                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        {isCompleted && <span aria-hidden="true">✓</span>}
-                        {step.label}
-                      </button>
-                    );
-                  })}
+                  <button
+                    onClick={handleMarkCollected}
+                    disabled={updatingStatus}
+                    className="w-full py-6 rounded-2xl text-xl font-black transition-all flex items-center justify-center gap-3 bg-brand-600 hover:bg-brand-700 text-white flat-shadow hover-scale disabled:opacity-60"
+                  >
+                    Food collected
+                  </button>
                 </div>
               </div>
             )}
