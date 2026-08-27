@@ -9,28 +9,24 @@ const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK 
 
 /* Shared frame for both login steps, so the Raja's Bakery mark keeps the exact
    same size when the school picker swaps out for the form — one wrapper, one
-   <BrandMark>, no re-mount. Its vertical position can still shift a little
-   between steps: the column is `m-auto`-centred and the two steps' cards
-   differ in height, so the whole column re-centres. Only the mark's size is
-   guaranteed stable, not its position.
+   <BrandMark>, no re-mount.
 
-   `m-auto` on the inner column plus `py-*` on the wrapper, rather than the
-   `items-center justify-center` this page used before. The KLH card (form +
-   demo quick-fill panel) is taller than a short viewport — measured at 875px
-   against a 560px phone and a 390px landscape phone. Chrome does not clip the
-   overflow either way (both put the logo at a reachable scroll-top), but with
-   plain centring the logo lands at top: 0, jammed against the viewport edge
-   with no breathing room; auto margins collapse to 0 and hand the column the
-   wrapper's padding instead, so it keeps a 32px gutter when it overflows and
-   stays optically centred when it does not. */
+   Top-anchored (not `m-auto`-centred): the mark is hero-sized on purpose, so
+   it should sit right under the status bar rather than have the extra space
+   on a short viewport split evenly above and below it. Any leftover height —
+   the common case, since the KLH card + mark together are usually shorter
+   than the viewport — collects at the bottom instead. On the rare taller
+   content (KLH's card with its demo quick-fill panel, measured at 875px
+   against a 560px phone) this still just scrolls, with the mark reachable at
+   scroll-top and a `pt-*` gutter instead of being jammed against the edge. */
 function LoginShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-surface-muted flex flex-col px-4 py-8 sm:py-12 fade-in">
-      <div className="m-auto w-full max-w-sm flex flex-col items-center">
+    <div className="min-h-screen bg-surface-muted flex flex-col items-center px-4 pt-6 sm:pt-10 pb-8 fade-in">
+      <div className="w-full max-w-sm flex flex-col items-center">
         {/* One axis constrained only — the artwork is portrait (366x422) and
             would squash if width were pinned too. `shrink-0` stops the flex
             column from compressing it when the card is tall. */}
-        <BrandMark className="h-24 sm:h-28 w-auto shrink-0 mb-4 sm:mb-8 rise-in" />
+        <BrandMark className="h-44 sm:h-56 w-auto shrink-0 mb-2 sm:mb-6 rise-in" />
         {children}
       </div>
     </div>
