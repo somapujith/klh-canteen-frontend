@@ -30,7 +30,7 @@ function LoginShell({ children }: { children: ReactNode }) {
         {/* One axis constrained only — the artwork is portrait (366x422) and
             would squash if width were pinned too. `shrink-0` stops the flex
             column from compressing it when the card is tall. */}
-        <BrandMark className="h-16 sm:h-24 w-auto shrink-0 mb-4 sm:mb-8 rise-in" />
+        <BrandMark className="h-24 sm:h-28 w-auto shrink-0 mb-4 sm:mb-8 rise-in" />
         {children}
       </div>
     </div>
