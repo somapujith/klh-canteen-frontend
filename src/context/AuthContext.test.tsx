@@ -35,7 +35,7 @@ describe("AuthContext", () => {
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
 
     await act(async () => {
-      await result.current.login("asha@klh.edu.in", "pass1234");
+      await result.current.login("asha@klh.edu.in", "pass1234", "KLH");
     });
 
     await waitFor(() => expect(result.current.token).toBe("abc123"));
@@ -146,7 +146,7 @@ describe("AuthContext", () => {
       id: "u1",
     });
     await act(async () => {
-      await result.current.login("admin@klh.edu.in", "x");
+      await result.current.login("admin@klh.edu.in", "x", "KLH");
     });
     act(() => {
       vi.advanceTimersByTime(5_000);
@@ -195,7 +195,7 @@ describe("AuthContext", () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
     await act(async () => {
-      await result.current.login("admin@klh.edu.in", "x");
+      await result.current.login("admin@klh.edu.in", "x", "KLH");
     });
 
     expect(sessionStorage.getItem(SESSION_EXPIRED_KEY)).toBeNull();
@@ -244,7 +244,7 @@ describe("AuthContext", () => {
     const newToken = jwtExpiringAt(Math.floor(Date.now() / 1000) + 7200);
     (apiClient.post as any).mockResolvedValue({ token: newToken, role: "ADMIN", name: "Admin", id: "u1" });
     await act(async () => {
-      await result.current.login("admin@klh.edu.in", "x");
+      await result.current.login("admin@klh.edu.in", "x", "KLH");
     });
 
     // The previous session's in-flight request finally settles 401.
@@ -277,7 +277,7 @@ describe("AuthContext", () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
     await act(async () => {
-      await result.current.login("admin@klh.edu.in", "x");
+      await result.current.login("admin@klh.edu.in", "x", "KLH");
     });
 
     expect(result.current.token).not.toBeNull();
@@ -329,7 +329,7 @@ describe("AuthContext", () => {
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
 
     await act(async () => {
-      await result.current.login("admin@klh.edu.in", "x");
+      await result.current.login("admin@klh.edu.in", "x", "KLH");
     });
     act(() => {
       result.current.logout();
