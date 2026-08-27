@@ -25,6 +25,7 @@ test.describe("Login (real network, no mocks)", () => {
     });
 
     await page.goto("/login");
+    await page.getByRole("button", { name: "KLH University" }).click();
 
     await page.locator("#identifier").fill("nobody@klh.edu.in");
     await page.locator("#password").fill("wrong-password");
@@ -56,6 +57,7 @@ test.describe("Login (real network, no mocks)", () => {
 
   test("valid seeded superadmin credentials log in and reach an authenticated view", async ({ page }) => {
     await page.goto("/login");
+    await page.getByRole("button", { name: "KLH University" }).click();
 
     await page.locator("#identifier").fill(SUPERADMIN_EMAIL);
     await page.locator("#password").fill(SUPERADMIN_PASSWORD);
@@ -80,5 +82,13 @@ test.describe("Login (real network, no mocks)", () => {
 
     // The authenticated shell (Navbar) is rendered, proving a real protected page mounted.
     await expect(page.locator("nav")).toBeVisible();
+  });
+
+  test("picking DRK shows DRK branding and hides the KLH demo quick-fill buttons", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: "DRK Institution" }).click();
+
+    await expect(page.getByText(/sign in to your drk institution/i)).toBeVisible();
+    await expect(page.getByText(/quick fill/i)).toHaveCount(0);
   });
 });

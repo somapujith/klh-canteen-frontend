@@ -3,6 +3,7 @@ import { jwtDecode } from "jwt-decode";
 import { apiClient, setUnauthorizedHandler } from "../lib/apiClient";
 
 type Role = "STUDENT" | "ADMIN" | "SUPERADMIN";
+export type School = "KLH" | "DRK";
 
 interface StoredAuth {
   token: string;
@@ -19,7 +20,7 @@ interface AuthContextValue {
   /** Resolves with the freshly authenticated session so callers can route on it
    * immediately — reading `role` off the context in the same tick returns the
    * pre-login value, because this component has not re-rendered yet. */
-  login: (identifier: string, password: string) => Promise<StoredAuth>;
+  login: (identifier: string, password: string, school: School) => Promise<StoredAuth>;
   logout: () => void;
 }
 
@@ -128,8 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const [clockUntrusted, setClockUntrusted] = useState(false);
 
-  const login = useCallback(async (identifier: string, password: string) => {
-    const result = await apiClient.post<StoredAuth>("/auth/login", { identifier, password });
+  const login = useCallback(async (identifier: string, password: string, school: School) => {
+    const result = await apiClient.post<StoredAuth>("/auth/login", { identifier, password, school });
     safeWrite(localStorage, STORAGE_KEY, JSON.stringify(result));
     safeDelete(sessionStorage, SESSION_EXPIRED_KEY);
 

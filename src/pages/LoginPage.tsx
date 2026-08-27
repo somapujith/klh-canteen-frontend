@@ -1,12 +1,40 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, SESSION_EXPIRED_KEY } from "../context/AuthContext";
+import type { School } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 import { landingPathFor } from "../lib/landing";
+
+const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK Institution" };
+
+function SchoolSelect({ onSelect }: { onSelect: (school: School) => void }) {
+  return (
+    <div className="w-full max-w-sm bg-surface rounded-2xl flat-shadow p-8 space-y-8 fade-in">
+      <div className="text-center space-y-2">
+        <h2 className="text-xl font-semibold text-gray-800">Welcome</h2>
+        <p className="text-sm text-gray-500">Choose your institution to sign in</p>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {(["KLH", "DRK"] as const).map((school) => (
+          <button
+            key={school}
+            type="button"
+            onClick={() => onSelect(school)}
+            className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-surface-muted p-6 hover:border-brand-500 hover:bg-white hover-scale flat-shadow-hover transition-all"
+          >
+            <Logo school={school} className="h-14" />
+            <span className="text-sm font-medium text-gray-700">{SCHOOL_LABEL[school]}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [school, setSchool] = useState<School | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,13 +47,14 @@ export function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!school) return;
     setError(null);
     setLoading(true);
     try {
       // Route on the role the server just returned. Reading `role` from the
       // auth context here would still hold the pre-login value, which sent
       // every admin to the student route and bounced them back to /login.
-      const session = await login(identifier, password);
+      const session = await login(identifier, password, school);
       navigate(landingPathFor(session.role), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -34,13 +63,33 @@ export function LoginPage() {
     }
   }
 
+  if (!school) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface-muted px-4">
+        <SchoolSelect onSelect={setSchool} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-muted px-4 fade-in">
       <div className="w-full max-w-sm bg-surface rounded-2xl flat-shadow p-8 space-y-8">
         <div className="flex flex-col items-center gap-2 mb-2">
-          <Logo className="h-20 hover-scale" />
+          <Logo school={school} className="h-20 hover-scale" />
           <h2 className="text-xl font-semibold text-gray-800 mt-2">Welcome Back</h2>
-          <p className="text-sm text-gray-500 text-center">Sign in to access your canteen account</p>
+          <p className="text-sm text-gray-500 text-center">Sign in to your {SCHOOL_LABEL[school]} canteen account</p>
+          <button
+            type="button"
+            onClick={() => {
+              setSchool(null);
+              setIdentifier("");
+              setPassword("");
+              setError(null);
+            }}
+            className="text-xs text-brand-600 hover:underline mt-1"
+          >
+            Not {SCHOOL_LABEL[school]}? Change school
+          </button>
         </div>
 
         {sessionExpired && !error && (
@@ -112,32 +161,34 @@ export function LoginPage() {
           </button>
         </form>
 
-        <div className="pt-6 border-t border-gray-100 flex flex-col gap-3">
-          <p className="text-xs text-center text-gray-400 uppercase font-semibold tracking-wider">Quick Fill (Demo)</p>
-          <button
-            onClick={() => { setIdentifier("student@klh.edu.in"); setPassword("student123"); }}
-            className="w-full rounded-xl bg-gray-100 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-200 transition-colors"
-            type="button"
-          >
-            Student Account
-          </button>
-          <div className="flex flex-col sm:flex-row gap-3">
+        {school === "KLH" && (
+          <div className="pt-6 border-t border-gray-100 flex flex-col gap-3">
+            <p className="text-xs text-center text-gray-400 uppercase font-semibold tracking-wider">Quick Fill (Demo)</p>
             <button
-              onClick={() => { setIdentifier("snacks_admin@klh.edu.in"); setPassword("changeme123"); }}
-              className="flex-1 rounded-xl bg-surface-muted border border-gray-200 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-100 hover:border-gray-300 transition-all"
+              onClick={() => { setIdentifier("student@klh.edu.in"); setPassword("student123"); }}
+              className="w-full rounded-xl bg-gray-100 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-200 transition-colors"
               type="button"
             >
-              Snacks Admin
+              Student Account
             </button>
-            <button
-              onClick={() => { setIdentifier("meals_admin@klh.edu.in"); setPassword("changeme123"); }}
-              className="flex-1 rounded-xl bg-brand-50 text-brand-700 py-2.5 text-sm font-medium hover:bg-brand-100 transition-colors"
-              type="button"
-            >
-              Meals Admin
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => { setIdentifier("snacks_admin@klh.edu.in"); setPassword("changeme123"); }}
+                className="flex-1 rounded-xl bg-surface-muted border border-gray-200 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-100 hover:border-gray-300 transition-all"
+                type="button"
+              >
+                Snacks Admin
+              </button>
+              <button
+                onClick={() => { setIdentifier("meals_admin@klh.edu.in"); setPassword("changeme123"); }}
+                className="flex-1 rounded-xl bg-brand-50 text-brand-700 py-2.5 text-sm font-medium hover:bg-brand-100 transition-colors"
+                type="button"
+              >
+                Meals Admin
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
