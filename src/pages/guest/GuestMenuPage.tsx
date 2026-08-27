@@ -129,6 +129,8 @@ export function GuestMenuPage() {
                   <img
                     src={item.imageUrl}
                     alt={item.name}
+                    loading="lazy"
+                    decoding="async"
                     className={`aspect-[4/3] w-full object-cover transition-transform duration-500 ${
                       soldOut ? "opacity-50 grayscale" : "group-hover:scale-105"
                     }`}

@@ -91,6 +91,7 @@ export function AdminDashboardPage() {
           ]);
         });
       });
+      const { generatePDF } = await import("../../utils/pdfExport");
       await generatePDF("Inventory Status Report", ["Category", "Item Name", "Price", "Stock Quantity", "Visible"], rows, "KLH_Inventory_Report");
     } catch (err) {
       console.error(err);
@@ -125,6 +126,7 @@ export function AdminDashboardPage() {
           `Rs. ${s.revenue.toFixed(2)}`
         ]);
 
+      const { generatePDF } = await import("../../utils/pdfExport");
       await generatePDF("Sales Summary (Delivered Orders)", ["Item Name", "Total Quantity Sold", "Total Revenue"], rows, "KLH_Sales_Report");
     } catch (err) {
       console.error(err);
@@ -147,6 +149,7 @@ export function AdminDashboardPage() {
         order.status
       ]);
 
+      const { generatePDF } = await import("../../utils/pdfExport");
       await generatePDF("Transaction Logs", ["Order ID", "Date", "Student", "Items", "Total", "Status"], rows, "KLH_Transaction_Logs");
     } catch (err) {
       console.error(err);
@@ -211,7 +214,7 @@ export function AdminDashboardPage() {
               {lowStockItems.map(item => (
                 <div key={item.id} className="bg-white rounded-xl p-3 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-3">
-                    <img src={item.imageUrl} alt={item.name} className="h-10 w-10 rounded-lg object-cover" />
+                    <img src={item.imageUrl} alt={item.name} loading="lazy" decoding="async" className="h-10 w-10 rounded-lg object-cover" />
                     <div>
                       <div className="text-sm font-semibold text-gray-900">{item.name}</div>
                       <div className="text-xs font-medium text-red-600">{item.stockQty} left</div>

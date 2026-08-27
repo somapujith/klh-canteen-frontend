@@ -169,10 +169,12 @@ export function StudentMenuPage() {
             return (
             <div key={item.id} className="bg-surface rounded-2xl flat-shadow hover:flat-shadow-hover transition-all duration-300 overflow-hidden flex flex-col group">
               <div className="relative overflow-hidden">
-                <img 
-                  src={item.imageUrl} 
-                  alt={item.name} 
-                  className={`aspect-[4/3] w-full object-cover transition-transform duration-500 ${soldOut ? 'opacity-50 grayscale' : 'group-hover:scale-105'}`} 
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  loading="lazy"
+                  decoding="async"
+                  className={`aspect-[4/3] w-full object-cover transition-transform duration-500 ${soldOut ? 'opacity-50 grayscale' : 'group-hover:scale-105'}`}
                 />
                 {inCart > 0 && !soldOut && (
                   <span className="absolute top-2 right-2 bg-brand-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
