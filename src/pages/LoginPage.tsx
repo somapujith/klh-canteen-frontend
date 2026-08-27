@@ -200,22 +200,13 @@ export function LoginPage() {
             >
               Student Account
             </button>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => { setIdentifier("snacks_admin@klh.edu.in"); setPassword("changeme123"); }}
-                className="flex-1 rounded-xl bg-surface-muted border border-gray-200 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-100 hover:border-gray-300 transition-all"
-                type="button"
-              >
-                Snacks Admin
-              </button>
-              <button
-                onClick={() => { setIdentifier("meals_admin@klh.edu.in"); setPassword("changeme123"); }}
-                className="flex-1 rounded-xl bg-brand-50 text-brand-700 py-2.5 text-sm font-medium hover:bg-brand-100 transition-colors"
-                type="button"
-              >
-                Meals Admin
-              </button>
-            </div>
+            <button
+              onClick={() => { setIdentifier("admin@klh.edu.in"); setPassword("changeme123"); }}
+              className="w-full rounded-xl bg-brand-50 text-brand-700 py-2.5 text-sm font-medium hover:bg-brand-100 transition-colors"
+              type="button"
+            >
+              Admin Account
+            </button>
           </div>
         )}
       </div>

@@ -1,45 +1,92 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useCart } from "../../context/CartContext";
 import { Navbar } from "../../components/Navbar";
 import { SkeletonCard } from "../../components/LoadingState";
 import { CartBar } from "../../components/CartBar";
-import { useSSE, type StockDelta } from "../../hooks/useSSE";
+import { ActiveOrdersBanner, ACTIVE_ORDER_STATUSES, type ActiveOrder } from "../../components/student/ActiveOrdersBanner";
+import { useAuth } from "../../context/AuthContext";
+import { useSSE, type OrderStatusDelta, type StockDelta } from "../../hooks/useSSE";
 import { applyStockDelta, type MenuCategory } from "../../lib/menu";
 
 export function StudentMenuPage() {
   const { items: cartItems, addItem, updateQty, removeItem, syncStock, total } = useCart();
+  const { token } = useAuth();
   const navigate = useNavigate();
   const [cartOpen, setCartOpen] = useState(false);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // null = not loaded yet, distinct from [] (loaded, genuinely none).
+  const [orders, setOrders] = useState<ActiveOrder[] | null>(null);
+
+  // Guards against a stale response landing after a newer request for the
+  // same resource — e.g. onResync firing fetchOrders() again before the
+  // mount-time call has resolved. Last-request-wins instead of last-to-land.
+  const menuRequestIdRef = useRef(0);
+  const ordersRequestIdRef = useRef(0);
 
   const fetchMenu = useCallback(() => {
+    const requestId = ++menuRequestIdRef.current;
     return apiClient
       .get<{ categories: MenuCategory[] }>("/menu")
       .then((data) => {
+        if (requestId !== menuRequestIdRef.current) return;
         setCategories(data.categories);
         setActiveTab((current) => current ?? data.categories[0]?.id ?? null);
       })
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
+  const fetchOrders = useCallback(() => {
+    const requestId = ++ordersRequestIdRef.current;
+    return apiClient
+      .get<ActiveOrder[]>("/orders/my", token ?? undefined)
+      .then((data) => {
+        if (requestId === ordersRequestIdRef.current) setOrders(data);
+      })
+      .catch(console.error);
+  }, [token]);
+
   useEffect(() => {
     fetchMenu();
-  }, [fetchMenu]);
+    fetchOrders();
+  }, [fetchMenu, fetchOrders]);
 
-  // Stock levels arrive as absolute values, so patch in place instead of refetching the menu.
-  useSSE(["MENU_UPDATE"], {
+  // One connection for the whole page (mirrors AdminDashboardPage's
+  // one-EventSource-per-page convention) rather than a second useSSE call
+  // just for the active-orders banner.
+  useSSE(["MENU_UPDATE", "ORDER_UPDATE"], {
     onDelta: (delta) => {
-      if (delta.kind === "STOCK") {
-        setCategories((prev) => applyStockDelta(prev, delta as StockDelta));
-      } else {
-        fetchMenu();
+      switch (delta.kind) {
+        case "STOCK":
+          setCategories((prev) => applyStockDelta(prev, delta as StockDelta));
+          break;
+        case "ORDER_STATUS": {
+          const { orderId, status } = delta as OrderStatusDelta;
+          if (!orderId || typeof status !== "string") break;
+          setOrders((prev) => {
+            if (prev === null) return prev; // mount fetch hasn't landed yet; it'll bring the current state
+            return ACTIVE_ORDER_STATUSES.has(status)
+              ? prev.map((o) => (o.id === orderId ? { ...o, status } : o))
+              : prev.filter((o) => o.id !== orderId);
+          });
+          break;
+        }
+        // Anything else (ITEM_UPSERT, ITEM_REMOVED, an event we don't
+        // recognise) is a menu concern, not an order one — refetching
+        // /orders/my here would mean every menu edit re-runs every
+        // connected student's full order history for no reason.
+        default:
+          fetchMenu();
       }
     },
-    onResync: () => fetchMenu(),
+    onResync: () => {
+      fetchMenu();
+      fetchOrders();
+    },
   });
 
   const activeCategory = categories.find((c) => c.id === activeTab);
@@ -72,7 +119,11 @@ export function StudentMenuPage() {
         cartCount={cartCount}
         onCartClick={cartCount > 0 ? () => navigate("/student/checkout") : undefined}
       />
-      
+
+      <div className="mx-auto w-full max-w-[100rem] px-4 pt-4">
+        <ActiveOrdersBanner orders={orders} />
+      </div>
+
       {/* Menu Categories */}
       <div className="mx-auto w-full max-w-[100rem] px-4 pt-5 pb-2 flex gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] sticky top-[60px] sm:top-[68px] bg-surface-muted/90 backdrop-blur-md z-30">
         {loading ? (

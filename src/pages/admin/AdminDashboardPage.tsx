@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { AdminNav } from "../../components/AdminNav";
-import { generatePDF } from "../../utils/pdfExport";
 import { useSSE, type StockDelta } from "../../hooks/useSSE";
 import type { AdminOrder, Category, MenuItem } from "../../types/admin";
 
