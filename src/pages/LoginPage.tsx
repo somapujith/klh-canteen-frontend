@@ -114,7 +114,6 @@ function KlhGoogleSetupForm({
           aria-invalid={fieldErrors.password ? true : undefined}
           aria-describedby={fieldErrors.password ? "klh-google-password-error" : undefined}
           className={`${FIELD_CLASS} ${fieldErrors.password ? FIELD_BAD : FIELD_OK}`}
-          placeholder="••••••••"
         />
         {fieldErrors.password && <FieldError id="klh-google-password-error">{fieldErrors.password}</FieldError>}
       </div>
@@ -135,7 +134,6 @@ function KlhGoogleSetupForm({
           aria-invalid={fieldErrors.confirmPassword ? true : undefined}
           aria-describedby={fieldErrors.confirmPassword ? "klh-google-confirm-password-error" : undefined}
           className={`${FIELD_CLASS} ${fieldErrors.confirmPassword ? FIELD_BAD : FIELD_OK}`}
-          placeholder="••••••••"
         />
         {fieldErrors.confirmPassword && (
           <FieldError id="klh-google-confirm-password-error">{fieldErrors.confirmPassword}</FieldError>
@@ -255,7 +253,7 @@ function PasswordLoginForm({
     <form onSubmit={onSubmit} noValidate className="space-y-5">
       <div className="space-y-1">
         <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
-          Email or Roll Number
+          Username
         </label>
         <input
           id="identifier"
@@ -270,7 +268,6 @@ function PasswordLoginForm({
           aria-invalid={fieldErrors.identifier ? true : undefined}
           aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
           className={`${FIELD_CLASS} ${fieldErrors.identifier ? FIELD_BAD : FIELD_OK}`}
-          placeholder="e.g. 2420090001"
         />
         {fieldErrors.identifier && <FieldError id="identifier-error">{fieldErrors.identifier}</FieldError>}
       </div>
@@ -287,6 +284,7 @@ function PasswordLoginForm({
             ref={passwordRef}
             type={showPassword ? "text" : "password"}
             value={password}
+            autoComplete="off"
             onChange={(e) => {
               setPassword(e.target.value);
               if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
@@ -298,7 +296,6 @@ function PasswordLoginForm({
             aria-invalid={fieldErrors.password ? true : undefined}
             aria-describedby={fieldErrors.password ? "password-error" : capsLock ? "caps-hint" : undefined}
             className={`${FIELD_CLASS} pr-12 ${fieldErrors.password ? FIELD_BAD : FIELD_OK}`}
-            placeholder="••••••••"
           />
           <button
             type="button"
@@ -459,7 +456,7 @@ export function LoginPage() {
     // unstyled, uncontrollable, and disappears on the next keystroke, so it
     // cannot be announced or re-read.
     const next: { identifier?: string; password?: string } = {};
-    if (!identifier.trim()) next.identifier = "Enter your email or roll number";
+    if (!identifier.trim()) next.identifier = "Enter your username";
     if (!password) next.password = "Enter your password";
     setFieldErrors(next);
     if (next.identifier || next.password) {
