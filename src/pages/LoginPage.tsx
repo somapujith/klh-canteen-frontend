@@ -77,12 +77,18 @@ function FieldError({ id, children }: { id: string; children: ReactNode }) {
    scroll-top and a `pt-*` gutter instead of being jammed against the edge. */
 function LoginShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-surface-muted flex flex-col items-center px-4 pt-6 sm:pt-10 pb-8 fade-in">
+    <div className="min-h-screen bg-surface-muted flex flex-col items-center justify-center px-4 py-8 fade-in">
       <div className="w-full max-w-sm flex flex-col items-center">
         {/* One axis constrained only — the artwork is portrait (366x422) and
             would squash if width were pinned too. `shrink-0` stops the flex
-            column from compressing it when the card is tall. */}
-        <BrandMark className="h-44 sm:h-56 w-auto shrink-0 mb-2 sm:mb-6 rise-in" />
+            column from compressing it when the card is tall. Fluid height via
+            clamp() instead of a single sm: breakpoint jump — that jump made
+            375px and 639px phones render identically, then 640px+ jump bigger
+            with nothing scaling further past it up to desktop widths. */}
+        <BrandMark
+          className="w-auto shrink-0 mb-4 rise-in"
+          style={{ height: "clamp(7rem, 18vh, 12rem)" }}
+        />
         {children}
       </div>
     </div>
@@ -186,7 +192,7 @@ export function LoginPage() {
           {/* Stepped down from h-20: the Raja's mark above the card is now the
               primary brand cue, so the institution logo reads as secondary —
               and two full-size logos stacked overflowed a 667px phone. */}
-          <Logo school={school} className="h-14 sm:h-16 w-auto" />
+          <Logo school={school} className="w-auto" style={{ height: "clamp(3rem, 8vh, 4rem)" }} />
           <h2 className="text-xl font-semibold text-gray-800">Welcome Back</h2>
           <p className="text-sm text-gray-500 text-center">Sign in to your {SCHOOL_LABEL[school]} canteen account</p>
           <button

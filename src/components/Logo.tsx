@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import klhLogo from "../assets/klh-logo.png";
 import drkLogo from "../assets/drk-logo.svg";
 import rajasLogo from "../assets/rajas-bakery-logo.svg";
@@ -10,7 +11,13 @@ import rajasLogo from "../assets/rajas-bakery-logo.svg";
    aspect-ratio before the SVG loads, so the card below it never jumps.
    Callers pass a complete className and should constrain ONE axis only
    (`h-* w-auto`) — constraining both would squash the portrait artwork. */
-export function BrandMark({ className = "h-24 w-auto" }: { className?: string }) {
+export function BrandMark({
+  className = "h-24 w-auto",
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}) {
   return (
     <img
       src={rajasLogo}
@@ -19,6 +26,7 @@ export function BrandMark({ className = "h-24 w-auto" }: { className?: string })
       height={422}
       draggable={false}
       className={className}
+      style={style}
     />
   );
 }
@@ -29,9 +37,11 @@ const ALT_BY_SCHOOL = { KLH: "KLH University", DRK: "DRK Institution" } as const
 export function Logo({
   className = "h-10",
   school = "KLH",
+  style,
 }: {
   className?: string;
   school?: "KLH" | "DRK";
+  style?: CSSProperties;
 }) {
-  return <img src={LOGO_BY_SCHOOL[school]} alt={ALT_BY_SCHOOL[school]} className={className} />;
+  return <img src={LOGO_BY_SCHOOL[school]} alt={ALT_BY_SCHOOL[school]} className={className} style={style} />;
 }
