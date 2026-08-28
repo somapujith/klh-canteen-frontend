@@ -28,6 +28,16 @@ export interface MenuItemCardProps {
   /** Set only on search results, where the hit may come from an inactive tab. */
   categoryName?: string;
   onAdd: () => void;
+  /**
+   * "Tell me when it's back" for a sold-out item. Omitted by callers where
+   * requesting makes no sense — the walk-up guest menu has no account to
+   * notify — so the button appears only where it can actually do something.
+   */
+  onRequest?: () => void;
+  /** This student has already asked for this item. */
+  requested?: boolean;
+  /** Their request is in flight. */
+  requesting?: boolean;
 }
 
 /**
@@ -39,7 +49,15 @@ export interface MenuItemCardProps {
  * different products. Keep it presentational — every page-specific concern
  * (cart wiring, kitchen, session) stays with the caller.
  */
-export function MenuItemCard({ item, inCart, categoryName, onAdd }: MenuItemCardProps) {
+export function MenuItemCard({
+  item,
+  inCart,
+  categoryName,
+  onAdd,
+  onRequest,
+  requested,
+  requesting,
+}: MenuItemCardProps) {
   const soldOut = item.stockQty === 0;
   const atCeiling = inCart >= item.stockQty;
 
@@ -97,6 +115,19 @@ export function MenuItemCard({ item, inCart, categoryName, onAdd }: MenuItemCard
           )}
           {soldOut ? "Unavailable" : atCeiling ? "All in cart" : inCart > 0 ? "Add another" : "Add"}
         </button>
+
+        {/* Replaces nothing — it sits under the dead Add button, which stays
+            visible so the card's shape does not jump when stock runs out. */}
+        {soldOut && onRequest && (
+          <button
+            type="button"
+            onClick={onRequest}
+            disabled={requested || requesting}
+            className="mt-2 w-full rounded-xl bg-warning-50 py-2 text-sm font-semibold text-warning-800 transition-colors hover:bg-warning-100 focus:outline-none focus:ring-2 focus:ring-warning-500/30 disabled:cursor-default disabled:opacity-70 active:scale-95"
+          >
+            {requested ? "We'll tell you when it's back" : requesting ? "Requesting…" : "Notify me when it's back"}
+          </button>
+        )}
       </div>
     </div>
   );

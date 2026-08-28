@@ -10,6 +10,9 @@ import { MenuFilters, filterItems, searchAllCategories, type MenuSearchHit } fro
 import { Button, EmptyState } from "../../components/ui";
 import { MenuItemCard } from "../../components/menu/MenuItemCard";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { orderErrorMessage } from "../../lib/collectionWindows";
+import { requestStockItem } from "../../lib/stockRequests";
 import { useSSE, type OrderStatusDelta, type StockDelta } from "../../hooks/useSSE";
 import { applyStockDelta, type MenuCategory, type MenuItemSummary } from "../../lib/menu";
 
@@ -32,7 +35,8 @@ function ListIcon() {
 
 export function StudentMenuPage() {
   const { items: cartItems, addItem, updateQty, removeItem, syncStock, total } = useCart();
-  const { token } = useAuth();
+  const { token, school } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [cartOpen, setCartOpen] = useState(false);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -178,6 +182,37 @@ export function StudentMenuPage() {
   );
 
   /**
+   * "Tell me when it's back" for a sold-out item. KLH only — the server
+   * enforces it too, this just keeps the button off screens where it would
+   * always fail.
+   *
+   * Requested ids are held for the session rather than fetched: the student
+   * needs to see their own tap acknowledged, and a list of what they asked for
+   * days ago is not worth a round trip on every menu load. A 409 that says
+   * they had already asked is treated as success, because from their side it
+   * is — they are on the list either way.
+   */
+  const canRequest = school === "KLH";
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+  const [requestingId, setRequestingId] = useState<string | null>(null);
+
+  const handleRequest = useCallback(
+    async (item: MenuItemSummary) => {
+      setRequestingId(item.id);
+      try {
+        await requestStockItem(item.id, token ?? undefined);
+        setRequestedIds((prev) => new Set(prev).add(item.id));
+        showToast(`We'll tell you when ${item.name} is back`, "success");
+      } catch (err) {
+        showToast(orderErrorMessage(err, "Could not register your request"), "error");
+      } finally {
+        setRequestingId(null);
+      }
+    },
+    [token, showToast]
+  );
+
+  /**
    * The rail scrolls horizontally, so after a reload the active chip can sit
    * off-screen to the right with nothing indicating it is selected. Pull it
    * back into view whenever the selection or the category list changes.
@@ -305,6 +340,9 @@ export function StudentMenuPage() {
               inCart={qtyInCart(item.id)}
               categoryName={category.name}
               onAdd={() => handleAdd(item, category)}
+              onRequest={canRequest ? () => void handleRequest(item) : undefined}
+              requested={requestedIds.has(item.id)}
+              requesting={requestingId === item.id}
             />
           ))
         ) : (
@@ -314,6 +352,9 @@ export function StudentMenuPage() {
               item={item}
               inCart={qtyInCart(item.id)}
               onAdd={() => handleAdd(item, activeCategory)}
+              onRequest={canRequest ? () => void handleRequest(item) : undefined}
+              requested={requestedIds.has(item.id)}
+              requesting={requestingId === item.id}
             />
           ))
         )}

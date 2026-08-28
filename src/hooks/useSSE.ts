@@ -65,11 +65,22 @@ export interface OrderSeenDelta {
   lockedByAdminId?: string | null;
 }
 
+/** A student asked to be told when a sold-out item is back. Admin-facing;
+ *  `count` is the item's whole outstanding total, not an increment. */
+export interface StockRequestDelta {
+  kind: "STOCK_REQUEST";
+  menuItemId: string;
+  menuItemName: string;
+  count: number;
+  requestedAt: string;
+}
+
 export type SSEDelta =
   | StockDelta
   | OrderCreatedDelta
   | OrderStatusDelta
   | OrderSeenDelta
+  | StockRequestDelta
   | { kind: string; [key: string]: unknown };
 
 export interface SSEEventMeta {

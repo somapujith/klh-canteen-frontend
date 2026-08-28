@@ -10,6 +10,10 @@ interface StoredAuth {
   role: Role;
   name: string;
   id: string;
+  /** Absent on sessions stored before this field existed — treat as unknown
+   *  rather than assuming KLH, so a stale session cannot unlock a
+   *  school-scoped feature it was never entitled to. */
+  school?: School;
 }
 
 interface AuthContextValue {
@@ -17,6 +21,8 @@ interface AuthContextValue {
   role: Role | null;
   name: string | null;
   userId: string | null;
+  /** Null on a session predating this field, or when logged out. */
+  school: School | null;
   /** Resolves with the freshly authenticated session so callers can route on it
    * immediately — reading `role` off the context in the same tick returns the
    * pre-login value, because this component has not re-rendered yet. */
@@ -226,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: auth?.role ?? null,
     name: auth?.name ?? null,
     userId: auth?.id ?? null,
+    school: auth?.school ?? null,
     login,
     logout,
   };

@@ -25,6 +25,11 @@ interface Props {
   onPatchItem: (itemId: string, patch: Partial<MenuItem>) => Promise<boolean>;
   onEditItem: (item: MenuItem) => void;
   onDeleteItem: (item: MenuItem) => void;
+  /** menuItemId -> how many students are waiting for it to come back. */
+  stockRequests: Map<string, number>;
+  /** The item whose notification is in flight, if any. */
+  notifyingItemId: string | null;
+  onNotifyRestock: (menuItemId: string) => void;
 }
 
 export function CategorySection({
@@ -43,6 +48,9 @@ export function CategorySection({
   onPatchItem,
   onEditItem,
   onDeleteItem,
+  stockRequests,
+  notifyingItemId,
+  onNotifyRestock,
 }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(category.name);
@@ -231,6 +239,9 @@ export function CategorySection({
               onPatch={(patch) => onPatchItem(item.id, patch)}
               onEdit={() => onEditItem(item)}
               onDelete={() => onDeleteItem(item)}
+              requestCount={stockRequests.get(item.id) ?? 0}
+              notifying={notifyingItemId === item.id}
+              onNotifyRestock={() => onNotifyRestock(item.id)}
             />
           ))}
         </ul>

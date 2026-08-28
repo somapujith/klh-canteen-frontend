@@ -8,9 +8,17 @@ import { ConfirmDialog } from "../../components/admin/ConfirmDialog";
 import { CategorySection } from "../../components/admin/menu/CategorySection";
 import { MenuItemFormModal } from "../../components/admin/menu/MenuItemFormModal";
 import { MenuToolbar } from "../../components/admin/menu/MenuToolbar";
-import { useSSE, type StockDelta } from "../../hooks/useSSE";
+import { useSSE, type StockDelta, type StockRequestDelta } from "../../hooks/useSSE";
 import type { Category, MenuItem } from "../../types/admin";
 import { applyStockDelta } from "../../lib/menu";
+import { useStockAlerts } from "../../context/StockAlertContext";
+import { StockAlertStack } from "../../components/admin/StockAlertStack";
+import {
+  fetchStockRequests,
+  notifyRestocked,
+  notifySummary,
+  type StockRequestCount,
+} from "../../lib/stockRequests";
 import {
   countItems,
   filterMenu,
@@ -32,6 +40,7 @@ type Pending =
 export function AdminMenuPage() {
   const { token, userId } = useAuth();
   const { showToast } = useToast();
+  const { pushAlert, dismissAlertForItem } = useStockAlerts();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +59,8 @@ export function AdminMenuPage() {
   const [categoryModal, setCategoryModal] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stockRequests, setStockRequests] = useState<StockRequestCount[]>([]);
+  const [notifying, setNotifying] = useState<string | null>(null);
 
   const loadMenu = useCallback(async () => {
     try {
@@ -72,17 +83,92 @@ export function AdminMenuPage() {
     void loadMenu();
   }, [loadMenu]);
 
+  /** menuItemId -> outstanding request count, so a row is an O(1) lookup. */
+  const requestsByItem = useMemo(
+    () => new Map(stockRequests.map((r) => [r.menuItemId, r.count])),
+    [stockRequests]
+  );
+
+  const loadStockRequests = useCallback(async () => {
+    try {
+      setStockRequests(await fetchStockRequests(token ?? undefined));
+    } catch {
+      // Non-fatal: the menu itself is the page's job, and a failed demand
+      // fetch should not blank it. The next SSE delta or reload retries.
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadStockRequests();
+  }, [loadStockRequests]);
+
   // STOCK deltas carry an absolute level — patch the row rather than refetching the whole menu.
-  useSSE(["MENU_UPDATE"], {
+  // STOCK_REQUEST rides the board channel, so both event types are subscribed here.
+  useSSE(["MENU_UPDATE", "ORDER_BOARD_UPDATE"], {
     onDelta: (delta) => {
       if (delta.kind === "STOCK") {
         setCategories((prev) => applyStockDelta(prev, delta as StockDelta));
-      } else {
+      } else if (delta.kind === "STOCK_REQUEST") {
+        const request = delta as StockRequestDelta;
+        // Both the persistent alert and the inline count, so the number on the
+        // item row is right whether or not the admin dismisses the popup.
+        pushAlert({
+          menuItemId: request.menuItemId,
+          menuItemName: request.menuItemName,
+          count: request.count,
+          requestedAt: request.requestedAt,
+        });
+        setStockRequests((prev) => {
+          const existing = prev.find((r) => r.menuItemId === request.menuItemId);
+          if (existing) {
+            return prev.map((r) =>
+              r.menuItemId === request.menuItemId ? { ...r, count: request.count } : r
+            );
+          }
+          return [
+            ...prev,
+            {
+              menuItemId: request.menuItemId,
+              menuItemName: request.menuItemName,
+              kitchen: "",
+              count: request.count,
+              firstRequestedAt: request.requestedAt,
+            },
+          ];
+        });
+      } else if (delta.kind !== "ORDER_CREATED" && delta.kind !== "ORDER_STATUS" && delta.kind !== "ORDER_SEEN") {
+        // Board traffic is not this page's concern; anything else means the
+        // menu may have moved under us.
         void loadMenu();
       }
     },
-    onResync: () => void loadMenu(),
+    onResync: () => {
+      void loadMenu();
+      void loadStockRequests();
+    },
   });
+
+  /**
+   * Tells everyone waiting that an item is back. The round ends server-side,
+   * so the local count is dropped rather than refetched — and the alert for
+   * this item goes with it, since it has now been acted on.
+   */
+  const notifyRestock = useCallback(
+    async (menuItemId: string) => {
+      setNotifying(menuItemId);
+      try {
+        const result = await notifyRestocked(menuItemId, token ?? undefined);
+        setStockRequests((prev) => prev.filter((r) => r.menuItemId !== menuItemId));
+        dismissAlertForItem(menuItemId);
+        showToast(notifySummary(result), result.notified > 0 ? "success" : "info");
+      } catch (err) {
+        showToast(adminErrorMessage(err, "Could not notify the students waiting"), "error");
+      } finally {
+        setNotifying(null);
+      }
+    },
+    [token, showToast, dismissAlertForItem]
+  );
 
   /**
    * Inline edits apply locally first and only roll back if the server refuses.
@@ -267,6 +353,7 @@ export function AdminMenuPage() {
   return (
     <div className="min-h-screen bg-surface-muted pb-16">
       <AdminNav />
+      <StockAlertStack />
 
       <div className="mx-auto max-w-4xl space-y-4 p-4">
         <MenuToolbar
@@ -338,6 +425,9 @@ export function AdminMenuPage() {
                 onPatchItem={patchItem}
                 onEditItem={(item) => setItemModal({ editingId: item.id })}
                 onDeleteItem={(item) => setPending({ kind: "deleteItem", item })}
+                stockRequests={requestsByItem}
+                notifyingItemId={notifying}
+                onNotifyRestock={notifyRestock}
               />
             ))}
           </div>

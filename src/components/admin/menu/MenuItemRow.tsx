@@ -31,9 +31,23 @@ interface Props {
   onPatch: (patch: Partial<MenuItem>) => Promise<boolean>;
   onEdit: () => void;
   onDelete: () => void;
+  /** How many students asked to be told when this comes back. 0 hides the badge. */
+  requestCount: number;
+  /** This item's notification is in flight. */
+  notifying: boolean;
+  onNotifyRestock: () => void;
 }
 
-export function MenuItemRow({ item, density, onPatch, onEdit, onDelete }: Props) {
+export function MenuItemRow({
+  item,
+  density,
+  onPatch,
+  onEdit,
+  onDelete,
+  requestCount,
+  notifying,
+  onNotifyRestock,
+}: Props) {
   const status = itemStatus(item);
   const style = STATUS_STYLE[status];
   const compact = density === "compact";
@@ -141,13 +155,25 @@ export function MenuItemRow({ item, density, onPatch, onEdit, onDelete }: Props)
             <span className="mt-0.5 flex items-center gap-1.5">
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} aria-hidden="true" />
               <span className={`text-[0.7rem] font-semibold ${style.text}`}>{STATUS_LABEL[status]}</span>
+              {requestCount > 0 && (
+                <span className="text-[0.7rem] font-semibold text-amber-700">
+                  · {requestCount} waiting
+                </span>
+              )}
             </span>
           ) : (
-            <span
-              className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide ring-1 ${style.chip} ${style.text}`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
-              {STATUS_LABEL[status]}
+            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide ring-1 ${style.chip} ${style.text}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} aria-hidden="true" />
+                {STATUS_LABEL[status]}
+              </span>
+              {requestCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[0.7rem] font-bold uppercase tracking-wide text-amber-800 ring-1 ring-amber-200">
+                  {requestCount} waiting
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -248,6 +274,20 @@ export function MenuItemRow({ item, density, onPatch, onEdit, onDelete }: Props)
             />
           </button>
         </span>
+
+        {/* Only worth showing once the item is back on the shelf: telling
+            students it has returned while it still reads Sold out would send
+            them to a menu they cannot order from. */}
+        {requestCount > 0 && status !== "SOLD_OUT" && (
+          <button
+            type="button"
+            onClick={onNotifyRestock}
+            disabled={notifying}
+            className="h-11 shrink-0 rounded-xl bg-amber-600 px-3 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {notifying ? "Notifying…" : "Notify students"}
+          </button>
+        )}
 
         <div className="flex items-center">
           <IconButton label={`Edit ${item.name}`} onClick={onEdit}>
