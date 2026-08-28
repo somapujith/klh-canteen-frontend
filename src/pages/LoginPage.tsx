@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, SESSION_EXPIRED_KEY } from "../context/AuthContext";
 import type { School } from "../context/AuthContext";
 import { Logo, BrandMark } from "../components/Logo";
 import { Button } from "../components/ui";
 import { landingPathFor } from "../lib/landing";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { apiClient } from "../lib/apiClient";
 
 const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK Institution" };
@@ -19,100 +20,6 @@ const GOOGLE_CLIENT_ID: Record<School, string | undefined> = {
   DRK: import.meta.env.VITE_GOOGLE_CLIENT_ID_DRK as string | undefined,
   KLH: import.meta.env.VITE_GOOGLE_CLIENT_ID_KLH as string | undefined,
 };
-const GOOGLE_GSI_SRC = "https://accounts.google.com/gsi/client";
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: { credential: string }) => void;
-          }) => void;
-          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
-        };
-      };
-    };
-  }
-}
-
-/** Loads the Google Identity Services script once and resolves on every
- *  call thereafter — KLH never pays this cost since it's only invoked from
- *  the DRK-gated effect below. */
-let gsiLoadPromise: Promise<void> | null = null;
-function loadGoogleIdentityServices(): Promise<void> {
-  if (window.google?.accounts?.id) return Promise.resolve();
-  if (gsiLoadPromise) return gsiLoadPromise;
-
-  gsiLoadPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${GOOGLE_GSI_SRC}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("Failed to load Google Sign-In")));
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = GOOGLE_GSI_SRC;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Google Sign-In"));
-    document.head.appendChild(script);
-  });
-  return gsiLoadPromise;
-}
-
-/**
- * Renders Google's own Sign In With Google button into a container div.
- * `clientId` is school-specific (see GOOGLE_CLIENT_ID above) — re-keying the
- * effect on it (and on `school` via the parent's `key` prop, see call site)
- * ensures switching schools re-initializes GIS against the right client
- * rather than reusing a stale `initialize()` call from the other school.
- */
-function GoogleSignInButton({
-  clientId,
-  onCredential,
-  onError,
-}: {
-  clientId: string | undefined;
-  onCredential: (idToken: string) => void;
-  onError: (message: string) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!clientId) return;
-    let cancelled = false;
-
-    loadGoogleIdentityServices()
-      .then(() => {
-        if (cancelled || !containerRef.current || !window.google) return;
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (response) => onCredential(response.credential),
-        });
-        window.google.accounts.id.renderButton(containerRef.current, {
-          type: "standard",
-          theme: "outline",
-          size: "large",
-          width: 320,
-          text: "signin_with",
-        });
-      })
-      .catch(() => {
-        if (!cancelled) onError("Google Sign-In could not be loaded. Check your connection and try again.");
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
-
-  if (!clientId) return null;
-  return <div ref={containerRef} className="flex justify-center" />;
-}
 
 interface KlhGoogleSetup {
   setupToken: string;
@@ -503,10 +410,31 @@ function SchoolSelect({ onSelect }: { onSelect: (school: School) => void }) {
   );
 }
 
+/** Reads the `:school` route param from /login/drk or /login/klh (see
+ *  App.tsx) — lets a QR code point straight at one school's card, skipping
+ *  SchoolSelect. Anything else, including a bare /login, falls through to
+ *  the picker rather than guessing. */
+function schoolFromParam(raw: string | undefined): School | null {
+  const upper = raw?.toUpperCase();
+  return upper === "KLH" || upper === "DRK" ? upper : null;
+}
+
 export function LoginPage() {
   const { login, loginWithGoogle, completeGoogleKlhLogin } = useAuth();
   const navigate = useNavigate();
-  const [school, setSchool] = useState<School | null>(null);
+  const { school: schoolParam } = useParams<{ school?: string }>();
+  const [school, setSchool] = useState<School | null>(() => schoolFromParam(schoolParam));
+
+  // Keeps `school` following the URL for navigation the initial useState
+  // seed can't see — browser back/forward between /login/drk and
+  // /login/klh, or a link swapped without a full remount. Deliberately NOT
+  // depended on `school` itself, so the local setSchool(null) from "Change
+  // school" (which also navigates to bare /login) isn't immediately
+  // overwritten by a stale schoolParam from the render before that
+  // navigation commits.
+  useEffect(() => {
+    setSchool(schoolFromParam(schoolParam));
+  }, [schoolParam]);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -601,7 +529,15 @@ export function LoginPage() {
   if (!school) {
     return (
       <LoginShell>
-        <SchoolSelect onSelect={setSchool} />
+        <SchoolSelect
+          onSelect={(picked) => {
+            setSchool(picked);
+            // Keeps the URL in sync with the choice, same shape as the
+            // QR-targetable /login/drk and /login/klh entry points — so
+            // sharing or reloading the link lands back on this same card.
+            navigate(`/login/${picked.toLowerCase()}`, { replace: true });
+          }}
+        />
       </LoginShell>
     );
   }
@@ -635,6 +571,10 @@ export function LoginPage() {
               setCapsLock(false);
               setKlhGoogleSetup(null);
               setShowDrkAdminLogin(false);
+              // Landed via /login/drk or /login/klh — walk the URL back to the
+              // bare picker too, so a refresh or share of the link doesn't
+              // re-skip the choice this button just backed out of.
+              if (schoolParam) navigate("/login", { replace: true });
             }}
             className="text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded"
           >

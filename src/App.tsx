@@ -31,6 +31,7 @@ const GuestMenuPage = lazyRoute(() => import("./pages/guest/GuestMenuPage").then
 const GuestCheckoutPage = lazyRoute(() => import("./pages/guest/GuestCheckoutPage").then(module => ({ default: module.GuestCheckoutPage })));
 const GuestOrderStatusPage = lazyRoute(() => import("./pages/guest/GuestOrderStatusPage").then(module => ({ default: module.GuestOrderStatusPage })));
 const GuestOrdersPage = lazyRoute(() => import("./pages/guest/GuestOrdersPage").then(module => ({ default: module.GuestOrdersPage })));
+const GuestGatePage = lazyRoute(() => import("./pages/guest/GuestGatePage").then(module => ({ default: module.GuestGatePage })));
 
 function RoleRedirect() {
   const { token, role } = useAuth();
@@ -55,12 +56,21 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoleRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          {/* QR-targetable entry points — same LoginPage, pre-selects the
+              school and skips SchoolSelect. See schoolFromParam() there. */}
+          <Route path="/login/:school" element={<LoginPage />} />
 
-          {/* Public counter routes — deliberately outside every ProtectedRoute. */}
-          <Route path="/g" element={<GuestMenuPage />} />
-          <Route path="/g/checkout" element={<GuestCheckoutPage />} />
-          <Route path="/g/orders" element={<GuestOrdersPage />} />
-          <Route path="/g/order/:ids" element={<GuestOrderStatusPage />} />
+          {/* Public counter routes — no ProtectedRoute (no account exists to
+              protect with), but every one of them sits behind GuestGatePage,
+              which requires a KLH Google sign-in before rendering its
+              <Outlet />. See GuestGatePage.tsx for why this is still a GUEST
+              session and not a student account. */}
+          <Route element={<GuestGatePage />}>
+            <Route path="/g" element={<GuestMenuPage />} />
+            <Route path="/g/checkout" element={<GuestCheckoutPage />} />
+            <Route path="/g/orders" element={<GuestOrdersPage />} />
+            <Route path="/g/order/:ids" element={<GuestOrderStatusPage />} />
+          </Route>
           <Route path="/guest" element={<Navigate to="/g" replace />} />
           <Route path="/guest/*" element={<Navigate to="/g" replace />} />
 

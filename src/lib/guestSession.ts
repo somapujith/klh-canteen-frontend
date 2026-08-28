@@ -184,6 +184,21 @@ export function readGuestIdentity(): GuestIdentity | null {
 }
 
 /**
+ * A remembered identity plus a session token that is still unexpired.
+ *
+ * Just checking `readGuestIdentity()` is not enough to skip the counter gate:
+ * the identity label and the session token are two separate values with two
+ * separate lifetimes, and a guest can return after the 4h session TTL has
+ * lapsed while the identity label (which never expires) is still sitting in
+ * storage. Letting them straight through on that stale label would only defer
+ * the failure to the first `/guest/*` call, which is a worse place to
+ * discover it than the gate.
+ */
+export function hasUsableGuestSession(): boolean {
+  return readGuestIdentity() !== null && isUsable(readStored());
+}
+
+/**
  * Exchanges a Google ID token for a guest session whose id is stable for this
  * Google account.
  *
