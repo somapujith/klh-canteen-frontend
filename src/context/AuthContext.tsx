@@ -32,6 +32,9 @@ interface AuthContextValue {
   /** KLH students, phase 2 of the Google setup flow — see startGoogleKlhLogin
    *  below for phase 1. Writes the session same as login()/loginWithGoogle(). */
   completeGoogleKlhLogin: (setupToken: string, username: string, password: string) => Promise<StoredAuth>;
+  /** Writes a session that already came back from a request (a returning
+   *  KLH student's /login/google/klh/start response) — no network call. */
+  applySession: (result: StoredAuth) => StoredAuth;
   logout: () => void;
 }
 
@@ -140,8 +143,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const [clockUntrusted, setClockUntrusted] = useState(false);
 
-  const login = useCallback(async (identifier: string, password: string, school: School) => {
-    const result = await apiClient.post<StoredAuth>("/auth/login", { identifier, password, school });
+  /** Shared by every path that ends in a fresh session — password login,
+   *  both Google flows, and a returning KLH student's Google sign-in, which
+   *  gets a session back from /login/google/klh/start itself rather than a
+   *  second round-trip to /complete. */
+  const applySession = useCallback((result: StoredAuth) => {
     safeWrite(localStorage, STORAGE_KEY, JSON.stringify(result));
     safeDelete(sessionStorage, SESSION_EXPIRED_KEY);
 
@@ -151,31 +157,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
-  const loginWithGoogle = useCallback(async (idToken: string) => {
-    const result = await apiClient.post<StoredAuth>("/auth/login/google", { idToken });
-    safeWrite(localStorage, STORAGE_KEY, JSON.stringify(result));
-    safeDelete(sessionStorage, SESSION_EXPIRED_KEY);
+  const login = useCallback(
+    async (identifier: string, password: string, school: School) => {
+      const result = await apiClient.post<StoredAuth>("/auth/login", { identifier, password, school });
+      return applySession(result);
+    },
+    [applySession]
+  );
 
-    const expiry = tokenExpiryMs(result.token);
-    setClockUntrusted(expiry !== null && expiry <= Date.now());
-    setAuth(result);
-    return result;
-  }, []);
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const result = await apiClient.post<StoredAuth>("/auth/login/google", { idToken });
+      return applySession(result);
+    },
+    [applySession]
+  );
 
-  const completeGoogleKlhLogin = useCallback(async (setupToken: string, username: string, password: string) => {
-    const result = await apiClient.post<StoredAuth>("/auth/login/google/klh/complete", {
-      setupToken,
-      username,
-      password,
-    });
-    safeWrite(localStorage, STORAGE_KEY, JSON.stringify(result));
-    safeDelete(sessionStorage, SESSION_EXPIRED_KEY);
-
-    const expiry = tokenExpiryMs(result.token);
-    setClockUntrusted(expiry !== null && expiry <= Date.now());
-    setAuth(result);
-    return result;
-  }, []);
+  const completeGoogleKlhLogin = useCallback(
+    async (setupToken: string, username: string, password: string) => {
+      const result = await apiClient.post<StoredAuth>("/auth/login/google/klh/complete", {
+        setupToken,
+        username,
+        password,
+      });
+      return applySession(result);
+    },
+    [applySession]
+  );
 
   const logout = useCallback(() => {
     safeDelete(localStorage, STORAGE_KEY);
@@ -267,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     loginWithGoogle,
     completeGoogleKlhLogin,
+    applySession,
     logout,
   };
 

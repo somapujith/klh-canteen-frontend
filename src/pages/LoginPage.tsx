@@ -28,6 +28,13 @@ interface KlhGoogleSetup {
   suggestedUsername: string;
 }
 
+/** /auth/login/google/klh/start's response — a returning student (Google
+ *  account already linked to a KLH row) logs straight in; a first-timer
+ *  gets a setup ticket instead. See AuthContext's `StoredAuth`. */
+type KlhGoogleStartResult =
+  | { needsSetup: false; token: string; role: "STUDENT"; name: string; id: string; school: "KLH" }
+  | ({ needsSetup: true } & KlhGoogleSetup);
+
 /**
  * Phase 2 of KLH's Google sign-in: shown after /auth/login/google/klh/start
  * returns a setup ticket. Always creates a brand new account — there is no
@@ -405,7 +412,7 @@ function schoolFromParam(raw: string | undefined): School | null {
 }
 
 export function LoginPage() {
-  const { login, loginWithGoogle, completeGoogleKlhLogin } = useAuth();
+  const { login, loginWithGoogle, completeGoogleKlhLogin, applySession } = useAuth();
   const navigate = useNavigate();
   const { school: schoolParam } = useParams<{ school?: string }>();
   const [school, setSchool] = useState<School | null>(() => schoolFromParam(schoolParam));
@@ -496,8 +503,16 @@ export function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const setup = await apiClient.post<KlhGoogleSetup>("/auth/login/google/klh/start", { idToken });
-      setKlhGoogleSetup(setup);
+      const result = await apiClient.post<KlhGoogleStartResult>("/auth/login/google/klh/start", { idToken });
+      if (result.needsSetup) {
+        setKlhGoogleSetup(result);
+      } else {
+        // Returning student — this Google account is already linked to a
+        // KLH row, so /start itself came back with a full session instead
+        // of a setup ticket. No second request needed.
+        const session = applySession(result);
+        navigate(landingPathFor(session.role), { replace: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
