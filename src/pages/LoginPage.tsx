@@ -14,10 +14,9 @@ const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK 
    either on for the build or off for the build, and the DRK card reserves the
    same height (see DEMO_ACCOUNTS) so the two steps measure the same.
 
-   Only KLH accounts are listed because only KLH accounts are seeded: every
-   script in Canteen-Backend/scripts (seedStudent, seedAdmin) inserts
-   *@klh.edu.in users, and the DRK enum value has no fixture behind it. No
-   credentials are invented here. */
+   Every credential below matches a row seedAdmin.ts actually writes. Nothing
+   here is invented: DRK has no demo *student* because none is seeded, so its
+   panel lists only the admin accounts that are. */
 const SHOW_DEMO_LOGINS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGINS === "true";
 
 /** Matches Canteen-Backend/scripts/seedStudent.ts and seedAdmin.ts defaults. */
@@ -26,7 +25,10 @@ const DEMO_ACCOUNTS: Record<School, { label: string; identifier: string; passwor
     { label: "Student account", identifier: "student@klh.edu.in", password: "student123" },
     { label: "Admin account", identifier: "admin@klh.edu.in", password: "changeme123" },
   ],
-  DRK: [],
+  DRK: [
+    { label: "Admin account", identifier: "admin@drk.edu.in", password: "changeme123" },
+    { label: "Super admin account", identifier: "superadmin@drk.edu.in", password: "changeme123" },
+  ],
 };
 
 const FIELD_CLASS =

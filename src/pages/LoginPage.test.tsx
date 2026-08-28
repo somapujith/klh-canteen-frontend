@@ -49,8 +49,9 @@ it("shows the school picker before any login form", () => {
 
 /* The demo panel used to render for KLH only, which gave DRK a visibly shorter
    card. It is now gated on the build (DEV / VITE_SHOW_DEMO_LOGINS) rather than
-   on the school, so both schools get the same panel — DRK's just has no
-   credentials to offer, because the backend seeds no DRK accounts. */
+   on the school, so both schools get one. Every credential offered must match a
+   row seedAdmin.ts actually writes — these tests are what stops the panel from
+   drifting back into advertising accounts nobody seeded. */
 it("offers the seeded KLH accounts in the demo quick-fill panel", () => {
   renderLogin();
   pickKlh();
@@ -61,14 +62,24 @@ it("offers the seeded KLH accounts in the demo quick-fill panel", () => {
   expect(screen.getByLabelText("Password")).toHaveValue("student123");
 });
 
-it("shows the demo panel for DRK too, but invents no credentials for it", () => {
+it("offers the seeded DRK admin accounts in the demo quick-fill panel", () => {
   renderLogin();
   fireEvent.click(screen.getByRole("button", { name: /drk institution/i }));
 
   expect(screen.getByText(/quick fill/i)).toBeInTheDocument();
-  expect(screen.getByText(/no demo accounts are seeded/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /^admin account$/i }));
+  expect(screen.getByLabelText(/email or roll number/i)).toHaveValue("admin@drk.edu.in");
+  expect(screen.getByLabelText("Password")).toHaveValue("changeme123");
+});
+
+/* DRK seeds admins but no demo student, so the panel must not offer one. This
+   is the assertion that fails if someone pastes the KLH student row into the
+   DRK list without seeding a matching account. */
+it("offers no demo student for DRK, because none is seeded", () => {
+  renderLogin();
+  fireEvent.click(screen.getByRole("button", { name: /drk institution/i }));
+
   expect(screen.queryByRole("button", { name: /student account/i })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /admin account/i })).not.toBeInTheDocument();
 });
 
 it("tells the user their session expired", () => {
