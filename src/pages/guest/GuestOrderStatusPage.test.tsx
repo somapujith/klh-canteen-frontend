@@ -52,47 +52,23 @@ function renderPage(ids: string) {
   );
 }
 
-it("renders the same four-step timeline the student token page does", async () => {
-  (guestApi.getOrder as ReturnType<typeof vi.fn>).mockResolvedValue(order({ id: "o1", status: "PREPARING" }));
-  renderPage("o1");
-
-  const rail = await screen.findByRole("list", { name: "Order progress" });
-  expect(rail).toBeInTheDocument();
-  // The four shared words, in order — not the guest card's old private
-  // three-step "Placed / Prepared / Collected".
-  expect(
-    Array.from(rail.querySelectorAll("li")).map((li) => li.textContent)
-  ).toEqual(["Placed", "Being made", "Ready to collect", "Collected"]);
-
-  // And the step the order is actually on is the marked one.
-  const current = rail.querySelector('li[aria-current="step"]');
-  expect(current).toHaveTextContent("Being made");
-});
-
 it("shows the human label, never the wire value", async () => {
   (guestApi.getOrder as ReturnType<typeof vi.fn>).mockResolvedValue(order({ id: "o1", status: "COOKED" }));
   renderPage("o1");
 
-  // Twice by design: the status badge, and the timeline step it corresponds to.
-  // Both come from lib/orderStatus, which is the point — they cannot disagree.
-  await waitFor(() => expect(screen.getAllByText("Ready to collect")).toHaveLength(2));
+  await waitFor(() => expect(screen.getByText("Ready to collect")).toBeInTheDocument());
   expect(screen.queryByText("COOKED")).not.toBeInTheDocument();
 });
 
-it("advances the timeline from a pushed status without refetching", async () => {
+it("updates the status copy from a pushed status without refetching", async () => {
   (guestApi.getOrder as ReturnType<typeof vi.fn>).mockResolvedValue(order({ id: "o1", status: "PENDING" }));
   renderPage("o1");
-  await screen.findByRole("list", { name: "Order progress" });
+  await screen.findByText("Sent to the kitchen");
   expect(guestApi.getOrder).toHaveBeenCalledTimes(1);
 
   captured?.onStatus({ kind: "ORDER_STATUS", orderId: "o1", status: "COOKED" } as never);
 
-  await waitFor(() => {
-    const current = screen
-      .getByRole("list", { name: "Order progress" })
-      .querySelector('li[aria-current="step"]');
-    expect(current).toHaveTextContent("Ready to collect");
-  });
+  await waitFor(() => expect(screen.getByText(/collect it at the counter/)).toBeInTheDocument());
   expect(guestApi.getOrder).toHaveBeenCalledTimes(1);
 });
 
@@ -102,10 +78,9 @@ it("renders one ticket per id when the cart was split across counters", async ()
   );
   renderPage("o1,o2");
 
-  await waitFor(() => expect(screen.getAllByRole("list", { name: "Order progress" })).toHaveLength(2));
   // Twice each: the visible band, and the sr-only line that spaces the digits
   // out so a screen reader reads "four two" rather than "forty-two".
-  expect(screen.getAllByText(/SNACKS token/)).toHaveLength(2);
+  await waitFor(() => expect(screen.getAllByText(/SNACKS token/)).toHaveLength(2));
   expect(screen.getAllByText(/MEALS token/)).toHaveLength(2);
 });
 

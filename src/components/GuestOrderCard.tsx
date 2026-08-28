@@ -2,19 +2,17 @@ import type { GuestOrder } from "../lib/guestSession";
 import { formatWindowTime } from "../lib/collectionWindows";
 import { formatOrderNumber } from "../lib/orderNumber";
 import { statusPresentation } from "../lib/orderStatus";
-import { OrderTimeline } from "./order/OrderTimeline";
 import { Badge } from "./ui";
 
 /**
  * What the card says under the token, per status.
  *
- * This is the only status copy left in this file. The label, the pill colour
- * and the timeline position all come from lib/orderStatus now — this card used
- * to carry its own three-step rail and its own word for COOKED ("Prepared",
- * against the token page's "Ready to collect"), which is exactly the drift
- * lib/orderStatus exists to stop. What stays local is the second sentence,
- * because it is specific to a walk-up guest standing at a counter and has no
- * equivalent on the student screens.
+ * This is the only status copy left in this file. The label and the pill
+ * colour come from lib/orderStatus now — this card used to carry its own word
+ * for COOKED ("Prepared", against the token page's "Ready to collect"), which
+ * is exactly the drift lib/orderStatus exists to stop. What stays local is the
+ * second sentence, because it is specific to a walk-up guest standing at a
+ * counter and has no equivalent on the student screens.
  *
  * Keyed off the raw wire string with a fallback, not off a Record<OrderStatus>:
  * a status this build has never seen must produce quiet, honest copy rather
@@ -153,14 +151,6 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
         <p className="text-sm font-medium text-gray-600" aria-live="polite">
           {STATUS_COPY[order.status] ?? `Status: ${label}`}
         </p>
-
-        {/* The same four-step rail the student token page renders, so a customer
-            who checks on one screen and then the other reads the same words.
-            OrderTimeline handles the off-timeline statuses itself (CANCELLED,
-            or anything this build does not recognise) by swapping the rail for
-            a terminal row, which is why there is no branch here. */}
-        <h3 className="sr-only">Order progress</h3>
-        <OrderTimeline status={order.status} />
 
         {order.collectionAt && (
           <div className="flex items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 text-sm font-medium text-gray-700">

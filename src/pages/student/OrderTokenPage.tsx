@@ -6,7 +6,6 @@ import { Navbar } from "../../components/Navbar";
 import { TokenReel } from "../../components/TokenReel";
 import { formatOrderNumber } from "../../lib/orderNumber";
 import { useSSE, type OrderStatusDelta } from "../../hooks/useSSE";
-import { OrderTimeline } from "../../components/order/OrderTimeline";
 import { statusPresentation } from "../../lib/orderStatus";
 
 interface OrderDetail {
@@ -250,15 +249,6 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
 
       {/* Stub — secondary detail, recessed so it never competes with the number. */}
       <div className="rounded-b-3xl bg-surface-hover px-5 py-4">
-        {/* Progress lives down here, not beside the number. It answers "how far
-            along is it", which is a question the student asks *after* reading
-            the token — putting a four-step rail next to the digits would give
-            the page two things competing to be looked at first. It is driven by
-            the same `order.status` the pill above is, so the SSE delta moves
-            both at once. */}
-        <h3 className="sr-only">Order progress</h3>
-        <OrderTimeline status={order.status} className="pb-4" />
-
         <h3 className="sr-only">Items in this order</h3>
         <ul className="divide-y divide-gray-200/70">
           {order.items.map((line, idx) => (
