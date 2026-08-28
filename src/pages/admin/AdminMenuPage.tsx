@@ -161,7 +161,13 @@ export function AdminMenuPage() {
         showToast(`Deleted ${pending.item.name}`, "success");
       } else if (pending.kind === "deleteCategory") {
         await apiClient.delete(`/admin/categories/${pending.category.id}`, token ?? undefined);
-        showToast(`Deleted ${pending.category.name}`, "success");
+        const itemCount = pending.category.items.length;
+        showToast(
+          itemCount > 0
+            ? `Deleted ${pending.category.name} and its ${itemCount === 1 ? "1 item" : `${itemCount} items`}`
+            : `Deleted ${pending.category.name}`,
+          "success"
+        );
       } else {
         await apiClient.patch(
           `/admin/categories/${pending.category.id}/bulk-items`,
@@ -398,7 +404,7 @@ function confirmBody(pending: Pending | null) {
     return (
       <p className="text-sm text-gray-600">
         {count > 0
-          ? `${pending.category.name} still holds ${count === 1 ? "1 item" : `${count} items`}. Delete or move them first — the server will refuse otherwise.`
+          ? `This also removes the ${count === 1 ? "1 item" : `${count} items`} in ${pending.category.name} from the menu for good. Past orders keep their record of them.`
           : "This category is empty, so nothing else is affected."}
       </p>
     );
