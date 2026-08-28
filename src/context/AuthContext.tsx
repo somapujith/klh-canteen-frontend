@@ -27,6 +27,11 @@ interface AuthContextValue {
    * immediately — reading `role` off the context in the same tick returns the
    * pre-login value, because this component has not re-rendered yet. */
   login: (identifier: string, password: string, school: School) => Promise<StoredAuth>;
+  /** DRK students only — exchanges a Google ID token for a session, same shape as login(). */
+  loginWithGoogle: (idToken: string) => Promise<StoredAuth>;
+  /** KLH students, phase 2 of the Google setup flow — see startGoogleKlhLogin
+   *  below for phase 1. Writes the session same as login()/loginWithGoogle(). */
+  completeGoogleKlhLogin: (setupToken: string, username: string, password: string) => Promise<StoredAuth>;
   logout: () => void;
 }
 
@@ -146,6 +151,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  const loginWithGoogle = useCallback(async (idToken: string) => {
+    const result = await apiClient.post<StoredAuth>("/auth/login/google", { idToken });
+    safeWrite(localStorage, STORAGE_KEY, JSON.stringify(result));
+    safeDelete(sessionStorage, SESSION_EXPIRED_KEY);
+
+    const expiry = tokenExpiryMs(result.token);
+    setClockUntrusted(expiry !== null && expiry <= Date.now());
+    setAuth(result);
+    return result;
+  }, []);
+
+  const completeGoogleKlhLogin = useCallback(async (setupToken: string, username: string, password: string) => {
+    const result = await apiClient.post<StoredAuth>("/auth/login/google/klh/complete", {
+      setupToken,
+      username,
+      password,
+    });
+    safeWrite(localStorage, STORAGE_KEY, JSON.stringify(result));
+    safeDelete(sessionStorage, SESSION_EXPIRED_KEY);
+
+    const expiry = tokenExpiryMs(result.token);
+    setClockUntrusted(expiry !== null && expiry <= Date.now());
+    setAuth(result);
+    return result;
+  }, []);
+
   const logout = useCallback(() => {
     safeDelete(localStorage, STORAGE_KEY);
     safeDelete(sessionStorage, SESSION_EXPIRED_KEY);
@@ -234,6 +265,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userId: auth?.id ?? null,
     school: auth?.school ?? null,
     login,
+    loginWithGoogle,
+    completeGoogleKlhLogin,
     logout,
   };
 

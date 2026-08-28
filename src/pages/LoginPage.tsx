@@ -1,35 +1,288 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, SESSION_EXPIRED_KEY } from "../context/AuthContext";
 import type { School } from "../context/AuthContext";
 import { Logo, BrandMark } from "../components/Logo";
 import { Button } from "../components/ui";
 import { landingPathFor } from "../lib/landing";
+import { apiClient } from "../lib/apiClient";
 
 const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK Institution" };
 
-/* Demo quick-fill is a development affordance, not a product feature, so it is
-   gated rather than shipped. It used to render for KLH only, which gave DRK
-   users a visibly shorter card for no reason they could see — now the panel is
-   either on for the build or off for the build, and the DRK card reserves the
-   same height (see DEMO_ACCOUNTS) so the two steps measure the same.
+/** Both schools get a Google button, but with different backing flows: DRK
+ *  auto-creates on first sign-in (no roster exists to match against), KLH
+ *  routes through a username/password setup step against its existing
+ *  bulk-imported roster (see KlhGoogleSetupForm below). Separate OAuth
+ *  client per school — separate GCP projects/consent screens, so either can
+ *  be rotated or reconfigured without touching the other. */
+const GOOGLE_CLIENT_ID: Record<School, string | undefined> = {
+  DRK: import.meta.env.VITE_GOOGLE_CLIENT_ID_DRK as string | undefined,
+  KLH: import.meta.env.VITE_GOOGLE_CLIENT_ID_KLH as string | undefined,
+};
+const GOOGLE_GSI_SRC = "https://accounts.google.com/gsi/client";
 
-   Every credential below matches a row seedAdmin.ts actually writes. Nothing
-   here is invented: DRK has no demo *student* because none is seeded, so its
-   panel lists only the admin accounts that are. */
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+          }) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+        };
+      };
+    };
+  }
+}
+
+/** Loads the Google Identity Services script once and resolves on every
+ *  call thereafter — KLH never pays this cost since it's only invoked from
+ *  the DRK-gated effect below. */
+let gsiLoadPromise: Promise<void> | null = null;
+function loadGoogleIdentityServices(): Promise<void> {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  if (gsiLoadPromise) return gsiLoadPromise;
+
+  gsiLoadPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${GOOGLE_GSI_SRC}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google Sign-In")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = GOOGLE_GSI_SRC;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Sign-In"));
+    document.head.appendChild(script);
+  });
+  return gsiLoadPromise;
+}
+
+/**
+ * Renders Google's own Sign In With Google button into a container div.
+ * `clientId` is school-specific (see GOOGLE_CLIENT_ID above) — re-keying the
+ * effect on it (and on `school` via the parent's `key` prop, see call site)
+ * ensures switching schools re-initializes GIS against the right client
+ * rather than reusing a stale `initialize()` call from the other school.
+ */
+function GoogleSignInButton({
+  clientId,
+  onCredential,
+  onError,
+}: {
+  clientId: string | undefined;
+  onCredential: (idToken: string) => void;
+  onError: (message: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!clientId) return;
+    let cancelled = false;
+
+    loadGoogleIdentityServices()
+      .then(() => {
+        if (cancelled || !containerRef.current || !window.google) return;
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => onCredential(response.credential),
+        });
+        window.google.accounts.id.renderButton(containerRef.current, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          width: 320,
+          text: "signin_with",
+        });
+      })
+      .catch(() => {
+        if (!cancelled) onError("Google Sign-In could not be loaded. Check your connection and try again.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
+
+  if (!clientId) return null;
+  return <div ref={containerRef} className="flex justify-center" />;
+}
+
+interface KlhGoogleSetup {
+  setupToken: string;
+  suggestedUsername: string;
+  usernameEditable: boolean;
+  accountExists: boolean;
+}
+
+/**
+ * Phase 2 of KLH's Google sign-in: shown after /auth/login/google/klh/start
+ * returns a setup ticket. Username is locked to the roll number extracted
+ * from the student's klh.edu.in address unless no digits were found there
+ * (a name-based address), in which case it's a free-text field. Always
+ * shown on a first-time Google sign-in — even for an already-provisioned
+ * roster account — per product spec: this screen is also how that account
+ * gets a password it can use outside Google from now on.
+ */
+function KlhGoogleSetupForm({
+  setup,
+  onComplete,
+  onCancel,
+}: {
+  setup: KlhGoogleSetup;
+  onComplete: (username: string, password: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [username, setUsername] = useState(setup.suggestedUsername);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string; confirmPassword?: string }>({});
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const next: typeof fieldErrors = {};
+    if (!username.trim()) next.username = "Username is required";
+    if (!password) next.password = "Enter a password";
+    if (password && password !== confirmPassword) next.confirmPassword = "Passwords do not match";
+    setFieldErrors(next);
+    if (Object.keys(next).length > 0) return;
+
+    setError(null);
+    setLoading(true);
+    try {
+      await onComplete(username.trim(), password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not finish setting up your account");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <div className="text-center space-y-1">
+        <h2 className="text-xl font-semibold text-gray-800">
+          {setup.accountExists ? "Confirm your account" : "Set up your account"}
+        </h2>
+        <p className="text-sm text-gray-500">
+          {setup.accountExists
+            ? "This roll number already has an account. Set a password to link it to Google."
+            : "Choose a password to finish creating your account."}
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="klh-google-username" className="block text-sm font-medium text-gray-700">
+          Username
+        </label>
+        <input
+          id="klh-google-username"
+          type="text"
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            if (fieldErrors.username) setFieldErrors((p) => ({ ...p, username: undefined }));
+          }}
+          disabled={loading || !setup.usernameEditable}
+          aria-invalid={fieldErrors.username ? true : undefined}
+          aria-describedby={fieldErrors.username ? "klh-google-username-error" : undefined}
+          className={`${FIELD_CLASS} ${fieldErrors.username ? FIELD_BAD : FIELD_OK} ${!setup.usernameEditable ? "text-gray-500" : ""}`}
+        />
+        {fieldErrors.username ? (
+          <FieldError id="klh-google-username-error">{fieldErrors.username}</FieldError>
+        ) : !setup.usernameEditable ? (
+          <p className="text-xs text-gray-500">Detected from your roll number — this can't be changed.</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="klh-google-password" className="block text-sm font-medium text-gray-700">
+          Password
+        </label>
+        <input
+          id="klh-google-password"
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
+          }}
+          disabled={loading}
+          aria-invalid={fieldErrors.password ? true : undefined}
+          aria-describedby={fieldErrors.password ? "klh-google-password-error" : undefined}
+          className={`${FIELD_CLASS} ${fieldErrors.password ? FIELD_BAD : FIELD_OK}`}
+          placeholder="••••••••"
+        />
+        {fieldErrors.password && <FieldError id="klh-google-password-error">{fieldErrors.password}</FieldError>}
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="klh-google-confirm-password" className="block text-sm font-medium text-gray-700">
+          Confirm password
+        </label>
+        <input
+          id="klh-google-confirm-password"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => {
+            setConfirmPassword(e.target.value);
+            if (fieldErrors.confirmPassword) setFieldErrors((p) => ({ ...p, confirmPassword: undefined }));
+          }}
+          disabled={loading}
+          aria-invalid={fieldErrors.confirmPassword ? true : undefined}
+          aria-describedby={fieldErrors.confirmPassword ? "klh-google-confirm-password-error" : undefined}
+          className={`${FIELD_CLASS} ${fieldErrors.confirmPassword ? FIELD_BAD : FIELD_OK}`}
+          placeholder="••••••••"
+        />
+        {fieldErrors.confirmPassword && (
+          <FieldError id="klh-google-confirm-password-error">{fieldErrors.confirmPassword}</FieldError>
+        )}
+      </div>
+
+      {error && (
+        <div role="alert" className="bg-danger-50 text-danger-700 p-3 rounded-lg text-sm flex items-start gap-2">
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
+
+      <Button type="submit" size="lg" fullWidth loading={loading}>
+        {loading ? "Setting up..." : "Continue"}
+      </Button>
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={loading}
+        className="w-full text-xs text-gray-500 hover:text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded"
+      >
+        Cancel and go back
+      </button>
+    </form>
+  );
+}
+
+/* Demo quick-fill is a development affordance, not a product feature, so it is
+   gated rather than shipped. KLH-only now — DRK has no password login at all
+   to quick-fill into (see the DRK branch of LoginPage below).
+
+   Every credential below matches a row seedAdmin.ts actually writes. */
 const SHOW_DEMO_LOGINS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGINS === "true";
 
 /** Matches Canteen-Backend/scripts/seedStudent.ts and seedAdmin.ts defaults. */
-const DEMO_ACCOUNTS: Record<School, { label: string; identifier: string; password: string }[]> = {
-  KLH: [
-    { label: "Student account", identifier: "student@klh.edu.in", password: "student123" },
-    { label: "Admin account", identifier: "admin@klh.edu.in", password: "changeme123" },
-  ],
-  DRK: [
-    { label: "Admin account", identifier: "admin@drk.edu.in", password: "changeme123" },
-    { label: "Super admin account", identifier: "superadmin@drk.edu.in", password: "changeme123" },
-  ],
-};
+const KLH_DEMO_ACCOUNTS: { label: string; identifier: string; password: string }[] = [
+  { label: "Student account", identifier: "student@klh.edu.in", password: "student123" },
+  { label: "Admin account", identifier: "admin@klh.edu.in", password: "changeme123" },
+];
 
 const FIELD_CLASS =
   "w-full rounded-xl border px-4 py-2.5 text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-all duration-200 disabled:opacity-60";
@@ -60,6 +313,137 @@ function FieldError({ id, children }: { id: string; children: ReactNode }) {
     <p id={id} role="alert" className="text-xs text-danger-600">
       {children}
     </p>
+  );
+}
+
+/**
+ * The username/password form, shared by KLH's default login step and DRK's
+ * admin-login toggle (see the DRK branch of LoginPage). All state lives in
+ * the parent so it survives the toggle without resetting mid-fill.
+ */
+function PasswordLoginForm({
+  identifier,
+  setIdentifier,
+  password,
+  setPassword,
+  showPassword,
+  setShowPassword,
+  capsLock,
+  onCapsLockKey,
+  onBlurPassword,
+  fieldErrors,
+  setFieldErrors,
+  error,
+  loading,
+  identifierRef,
+  passwordRef,
+  onSubmit,
+}: {
+  identifier: string;
+  setIdentifier: (v: string) => void;
+  password: string;
+  setPassword: (v: string) => void;
+  showPassword: boolean;
+  setShowPassword: (fn: (v: boolean) => boolean) => void;
+  capsLock: boolean;
+  onCapsLockKey: (e: KeyboardEvent<HTMLInputElement>) => void;
+  onBlurPassword: () => void;
+  fieldErrors: { identifier?: string; password?: string };
+  setFieldErrors: (fn: (p: { identifier?: string; password?: string }) => { identifier?: string; password?: string }) => void;
+  error: string | null;
+  loading: boolean;
+  identifierRef: RefObject<HTMLInputElement | null>;
+  passwordRef: RefObject<HTMLInputElement | null>;
+  onSubmit: (e: FormEvent) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-5">
+      <div className="space-y-1">
+        <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
+          Email or Roll Number
+        </label>
+        <input
+          id="identifier"
+          ref={identifierRef}
+          type="text"
+          value={identifier}
+          onChange={(e) => {
+            setIdentifier(e.target.value);
+            if (fieldErrors.identifier) setFieldErrors((p) => ({ ...p, identifier: undefined }));
+          }}
+          disabled={loading}
+          aria-invalid={fieldErrors.identifier ? true : undefined}
+          aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
+          className={`${FIELD_CLASS} ${fieldErrors.identifier ? FIELD_BAD : FIELD_OK}`}
+          placeholder="e.g. 2420090001"
+        />
+        {fieldErrors.identifier && <FieldError id="identifier-error">{fieldErrors.identifier}</FieldError>}
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          Password
+        </label>
+        {/* The toggle sits inside the field's right edge, so the input keeps
+            `pr-12` to stop the value running underneath it. */}
+        <div className="relative">
+          <input
+            id="password"
+            ref={passwordRef}
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
+            }}
+            onKeyUp={onCapsLockKey}
+            onKeyDown={onCapsLockKey}
+            onBlur={onBlurPassword}
+            disabled={loading}
+            aria-invalid={fieldErrors.password ? true : undefined}
+            aria-describedby={fieldErrors.password ? "password-error" : capsLock ? "caps-hint" : undefined}
+            className={`${FIELD_CLASS} pr-12 ${fieldErrors.password ? FIELD_BAD : FIELD_OK}`}
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
+            aria-controls="password"
+            disabled={loading}
+            className="absolute inset-y-0 right-0 w-11 min-h-11 flex items-center justify-center rounded-r-xl text-gray-400 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors disabled:opacity-60"
+          >
+            <EyeIcon open={showPassword} />
+          </button>
+        </div>
+        {fieldErrors.password ? (
+          <FieldError id="password-error">{fieldErrors.password}</FieldError>
+        ) : (
+          // A quiet note, not an error: Caps Lock being on is a likely cause
+          // of a failed login, but it is not itself a problem to fix.
+          capsLock && (
+            <p id="caps-hint" className="text-xs text-gray-500">
+              Caps Lock is on
+            </p>
+          )
+        )}
+      </div>
+
+      {error && (
+        <div role="alert" className="bg-danger-50 text-danger-700 p-3 rounded-lg text-sm flex items-start gap-2">
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Explicit type="submit" — ui/Button defaults to "button". */}
+      <Button type="submit" size="lg" fullWidth loading={loading}>
+        {loading ? "Logging in..." : "Log In"}
+      </Button>
+    </form>
   );
 }
 
@@ -120,7 +504,7 @@ function SchoolSelect({ onSelect }: { onSelect: (school: School) => void }) {
 }
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle, completeGoogleKlhLogin } = useAuth();
   const navigate = useNavigate();
   const [school, setSchool] = useState<School | null>(null);
   const [identifier, setIdentifier] = useState("");
@@ -128,6 +512,13 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ identifier?: string; password?: string }>({});
+  /** Set once /auth/login/google/klh/start returns — swaps the KLH card to
+   *  KlhGoogleSetupForm until the student finishes phase 2. */
+  const [klhGoogleSetup, setKlhGoogleSetup] = useState<KlhGoogleSetup | null>(null);
+  /** DRK is Google-only by default (see the tooltip); this reveals the
+   *  password form underneath an explicit "Admin login" toggle instead, for
+   *  the staff accounts that were never migrated to Google sign-in. */
+  const [showDrkAdminLogin, setShowDrkAdminLogin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const identifierRef = useRef<HTMLInputElement>(null);
@@ -175,6 +566,38 @@ export function LoginPage() {
     }
   }
 
+  async function handleGoogleCredential(idToken: string) {
+    setError(null);
+    setLoading(true);
+    try {
+      const session = await loginWithGoogle(idToken);
+      navigate(landingPathFor(session.role), { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleKlhGoogleCredential(idToken: string) {
+    setError(null);
+    setLoading(true);
+    try {
+      const setup = await apiClient.post<KlhGoogleSetup>("/auth/login/google/klh/start", { idToken });
+      setKlhGoogleSetup(setup);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleKlhGoogleSetupComplete(username: string, klhPassword: string) {
+    if (!klhGoogleSetup) return;
+    const session = await completeGoogleKlhLogin(klhGoogleSetup.setupToken, username, klhPassword);
+    navigate(landingPathFor(session.role), { replace: true });
+  }
+
   if (!school) {
     return (
       <LoginShell>
@@ -183,7 +606,7 @@ export function LoginPage() {
     );
   }
 
-  const demoAccounts = SHOW_DEMO_LOGINS ? DEMO_ACCOUNTS[school] : [];
+  const demoAccounts = SHOW_DEMO_LOGINS && school === "KLH" ? KLH_DEMO_ACCOUNTS : [];
 
   return (
     <LoginShell>
@@ -195,6 +618,11 @@ export function LoginPage() {
           <Logo school={school} className="w-auto" style={{ height: "clamp(3rem, 8vh, 4rem)" }} />
           <h2 className="text-xl font-semibold text-gray-800">Welcome Back</h2>
           <p className="text-sm text-gray-500 text-center">Sign in to your {SCHOOL_LABEL[school]} canteen account</p>
+          {/* Red at rest, not just on hover, so the way back out of the wrong
+              school is visible rather than discovered. brand-600 and not
+              danger-*: this is navigation, not a destructive action, and
+              index.css reserves the danger ramp for the latter so the two read
+              apart when adjacent. */}
           <button
             type="button"
             onClick={() => {
@@ -205,8 +633,10 @@ export function LoginPage() {
               setFieldErrors({});
               setShowPassword(false);
               setCapsLock(false);
+              setKlhGoogleSetup(null);
+              setShowDrkAdminLogin(false);
             }}
-            className="text-xs text-gray-500 hover:text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded"
+            className="text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded"
           >
             Not {SCHOOL_LABEL[school]}? Change school
           </button>
@@ -221,93 +651,113 @@ export function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-5">
-          <div className="space-y-1">
-            <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
-              Email or Roll Number
-            </label>
-            <input
-              id="identifier"
-              ref={identifierRef}
-              type="text"
-              value={identifier}
-              onChange={(e) => {
-                setIdentifier(e.target.value);
-                if (fieldErrors.identifier) setFieldErrors((p) => ({ ...p, identifier: undefined }));
-              }}
-              disabled={loading}
-              aria-invalid={fieldErrors.identifier ? true : undefined}
-              aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
-              className={`${FIELD_CLASS} ${fieldErrors.identifier ? FIELD_BAD : FIELD_OK}`}
-              placeholder="e.g. 2420090001"
-            />
-            {fieldErrors.identifier && <FieldError id="identifier-error">{fieldErrors.identifier}</FieldError>}
-          </div>
+        {school === "KLH" && klhGoogleSetup ? (
+          <KlhGoogleSetupForm
+            setup={klhGoogleSetup}
+            onComplete={handleKlhGoogleSetupComplete}
+            onCancel={() => setKlhGoogleSetup(null)}
+          />
+        ) : school === "DRK" ? (
+          // DRK is Google-only for students and by default for staff too —
+          // the password form only appears once "Admin login" is clicked.
+          // See googleAuthService.ts's loginWithGoogle: it auto-creates a
+          // STUDENT row on first sign-in, and DRK admin/superadmin accounts
+          // are provisioned directly against googleId or a password, same as
+          // any other DRK account.
+          <div className="space-y-5">
+            <div className="bg-brand-50 text-brand-800 p-3 rounded-lg text-xs flex items-start gap-2">
+              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Students and staff use Google login only.</span>
+            </div>
 
-          <div className="space-y-1">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            {/* The toggle sits inside the field's right edge, so the input keeps
-                `pr-12` to stop the value running underneath it. */}
-            <div className="relative">
-              <input
-                id="password"
-                ref={passwordRef}
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
-                }}
-                onKeyUp={readCapsLock}
-                onKeyDown={readCapsLock}
-                onBlur={() => setCapsLock(false)}
-                disabled={loading}
-                aria-invalid={fieldErrors.password ? true : undefined}
-                aria-describedby={fieldErrors.password ? "password-error" : capsLock ? "caps-hint" : undefined}
-                className={`${FIELD_CLASS} pr-12 ${fieldErrors.password ? FIELD_BAD : FIELD_OK}`}
-                placeholder="••••••••"
+            {!showDrkAdminLogin && error && (
+              <div role="alert" className="bg-danger-50 text-danger-700 p-3 rounded-lg text-sm flex items-start gap-2">
+                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <GoogleSignInButton
+              key={school}
+              clientId={GOOGLE_CLIENT_ID.DRK}
+              onCredential={handleGoogleCredential}
+              onError={setError}
+            />
+
+            {showDrkAdminLogin ? (
+              <PasswordLoginForm
+                identifier={identifier}
+                setIdentifier={setIdentifier}
+                password={password}
+                setPassword={setPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                capsLock={capsLock}
+                onCapsLockKey={readCapsLock}
+                onBlurPassword={() => setCapsLock(false)}
+                fieldErrors={fieldErrors}
+                setFieldErrors={setFieldErrors}
+                error={error}
+                loading={loading}
+                identifierRef={identifierRef}
+                passwordRef={passwordRef}
+                onSubmit={handleSubmit}
               />
+            ) : (
               <button
                 type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                aria-pressed={showPassword}
-                aria-controls="password"
-                disabled={loading}
-                className="absolute inset-y-0 right-0 w-11 min-h-11 flex items-center justify-center rounded-r-xl text-gray-400 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors disabled:opacity-60"
+                onClick={() => setShowDrkAdminLogin(true)}
+                className="w-full text-center text-xs text-gray-500 hover:text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded"
               >
-                <EyeIcon open={showPassword} />
+                Admin login
               </button>
-            </div>
-            {fieldErrors.password ? (
-              <FieldError id="password-error">{fieldErrors.password}</FieldError>
-            ) : (
-              // A quiet note, not an error: Caps Lock being on is a likely cause
-              // of a failed login, but it is not itself a problem to fix.
-              capsLock && (
-                <p id="caps-hint" className="text-xs text-gray-500">
-                  Caps Lock is on
-                </p>
-              )
             )}
           </div>
+        ) : (
+        <>
+        <div className="bg-brand-50 text-brand-800 p-3 rounded-lg text-xs flex items-start gap-2">
+          <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>First-time login? Use "Sign in with Google" below with your klh.edu.in account.</span>
+        </div>
 
-          {error && (
-            <div role="alert" className="bg-danger-50 text-danger-700 p-3 rounded-lg text-sm flex items-start gap-2">
-              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
-            </div>
-          )}
+        <PasswordLoginForm
+          identifier={identifier}
+          setIdentifier={setIdentifier}
+          password={password}
+          setPassword={setPassword}
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+          capsLock={capsLock}
+          onCapsLockKey={readCapsLock}
+          onBlurPassword={() => setCapsLock(false)}
+          fieldErrors={fieldErrors}
+          setFieldErrors={setFieldErrors}
+          error={error}
+          loading={loading}
+          identifierRef={identifierRef}
+          passwordRef={passwordRef}
+          onSubmit={handleSubmit}
+        />
 
-          {/* Explicit type="submit" — ui/Button defaults to "button". */}
-          <Button type="submit" size="lg" fullWidth loading={loading}>
-            {loading ? "Logging in..." : "Log In"}
-          </Button>
-        </form>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3 text-xs text-gray-400 uppercase font-semibold tracking-wider">
+            <span className="flex-1 border-t border-border" />
+            or
+            <span className="flex-1 border-t border-border" />
+          </div>
+          <GoogleSignInButton
+            key={school}
+            clientId={GOOGLE_CLIENT_ID.KLH}
+            onCredential={handleKlhGoogleCredential}
+            onError={setError}
+          />
+        </div>
 
         {SHOW_DEMO_LOGINS && (
           <div className="pt-6 border-t border-border flex flex-col gap-3">
@@ -328,15 +778,13 @@ export function LoginPage() {
                 </Button>
               ))
             ) : (
-              /* DRK has no seeded accounts to offer. The panel still renders,
-                 with the reason stated, so the two schools' cards stay the same
-                 height instead of DRK silently getting a shorter card. Reserved
-                 height = 2 x md Button (44px) + the 12px gap between them. */
               <p className="min-h-[6.25rem] flex items-center justify-center text-center text-xs text-gray-500">
                 No demo accounts are seeded for {SCHOOL_LABEL[school]} yet.
               </p>
             )}
           </div>
+        )}
+        </>
         )}
       </div>
     </LoginShell>

@@ -3,6 +3,9 @@ import type { Kitchen } from "../types/admin";
 
 const TOKEN_KEY = "klh_guest_session";
 const GUEST_HEADER = "X-Guest-Session";
+/** Remembered alongside the token so the counter UI can show which account is
+ *  signed in, and so a returning guest is not asked to sign in again. */
+const IDENTITY_KEY = "klh_guest_identity";
 /** Refresh a little early so a session can't expire mid-checkout. */
 const REFRESH_MARGIN_MS = 60_000;
 
@@ -45,8 +48,26 @@ export interface GuestOrder {
   items: GuestOrderLine[];
 }
 
+/**
+ * localStorage, NOT sessionStorage — this is what keeps a guest's ticket
+ * alive.
+ *
+ * sessionStorage is scoped to one tab and is wiped when that tab closes, so a
+ * guest who closed the tab, reopened the site, or opened it in a second tab
+ * got a brand-new session and their pending order vanished from "my orders"
+ * — the order still existed and was still cooking, but the only key that
+ * could read it back was gone. localStorage survives tab close and is shared
+ * across tabs of the same origin, so the ticket is recoverable for as long as
+ * the server-side token is valid (GUEST_SESSION_TTL_SECONDS, 4h — long enough
+ * to cover a visit, short enough that an unattended phone isn't carrying a
+ * live token for days).
+ *
+ * Both stores are read: any guest who is mid-visit right now still has their
+ * token in the old location, and reading it once migrates them across without
+ * losing the order they are currently waiting on.
+ */
 function readStored(): StoredGuestSession | null {
-  const raw = sessionStorage.getItem(TOKEN_KEY);
+  const raw = safeGet(localStorage) ?? safeGet(sessionStorage);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as StoredGuestSession;
@@ -57,13 +78,53 @@ function readStored(): StoredGuestSession | null {
   }
 }
 
+/**
+ * Storage access throws rather than returning null in a locked-down browser
+ * (Safari private mode, third-party-cookie blocking in an iframe, or a user
+ * who has disabled site data), and an uncaught throw here would take down the
+ * whole ordering page. Failing soft means the guest silently falls back to a
+ * fresh in-memory session per page load — degraded, but still able to order.
+ */
+function safeGet(store: Storage): string | null {
+  try {
+    return store.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function safeSet(store: Storage, value: string): void {
+  try {
+    store.setItem(TOKEN_KEY, value);
+  } catch {
+    /* Storage unavailable or full — see safeGet. */
+  }
+}
+
+function safeRemove(store: Storage): void {
+  try {
+    store.removeItem(TOKEN_KEY);
+  } catch {
+    /* Storage unavailable — see safeGet. */
+  }
+}
+
 function isUsable(session: StoredGuestSession | null): session is StoredGuestSession {
   if (!session) return false;
   return new Date(session.expiresAt).getTime() - REFRESH_MARGIN_MS > Date.now();
 }
 
 export function clearGuestSession(): void {
-  sessionStorage.removeItem(TOKEN_KEY);
+  // Both stores: a guest mid-migration may still hold the old sessionStorage
+  // copy, and clearing only one would leave a stale token that readStored()
+  // would happily pick back up.
+  safeRemove(localStorage);
+  safeRemove(sessionStorage);
+  try {
+    localStorage.removeItem(IDENTITY_KEY);
+  } catch {
+    /* Storage unavailable — see safeGet. */
+  }
 }
 
 /** Dedupes concurrent mints so a page mounting several fetches only creates one session. */
@@ -71,7 +132,8 @@ let pendingMint: Promise<string> | null = null;
 
 /**
  * Returns a usable guest session token, minting a new one via POST /guest/session when needed.
- * The token lives in sessionStorage so a refresh at the counter keeps the same order history.
+ * The token lives in localStorage (see readStored) so closing the tab, reopening
+ * the site, or opening a second tab all keep the same order history.
  */
 export function ensureGuestSession(forceNew = false): Promise<string> {
   if (!forceNew) {
@@ -83,10 +145,13 @@ export function ensureGuestSession(forceNew = false): Promise<string> {
     pendingMint = apiClient
       .post<GuestSessionResponse>("/guest/session", {})
       .then((res) => {
-        sessionStorage.setItem(
-          TOKEN_KEY,
+        safeSet(
+          localStorage,
           JSON.stringify({ token: res.sessionToken, expiresAt: res.expiresAt } satisfies StoredGuestSession)
         );
+        // A stale copy in the old location would outlive this one and get
+        // picked up by readStored() on a later visit.
+        safeRemove(sessionStorage);
         return res.sessionToken;
       })
       .finally(() => {
@@ -95,6 +160,56 @@ export function ensureGuestSession(forceNew = false): Promise<string> {
   }
 
   return pendingMint;
+}
+
+interface GoogleGuestSessionResponse extends GuestSessionResponse {
+  email: string;
+  name: string | null;
+}
+
+export interface GuestIdentity {
+  email: string;
+  name: string | null;
+}
+
+export function readGuestIdentity(): GuestIdentity | null {
+  try {
+    const raw = localStorage.getItem(IDENTITY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as GuestIdentity;
+    return parsed?.email ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Exchanges a Google ID token for a guest session whose id is stable for this
+ * Google account.
+ *
+ * This is still a GUEST session — no account, no privileges, same endpoints.
+ * The only thing it buys is durability: the server derives the session id from
+ * the Google subject, so signing in on a new device or after clearing site
+ * data recovers the SAME tickets instead of starting empty.
+ *
+ * The returned token replaces whatever anonymous session was in storage. Any
+ * orders placed anonymously before signing in stay under the old session id
+ * and are not migrated — see the note in the guest orders page.
+ */
+export async function signInGuestWithGoogle(idToken: string): Promise<GuestIdentity> {
+  const res = await apiClient.post<GoogleGuestSessionResponse>("/guest/session/google", { idToken });
+  safeSet(
+    localStorage,
+    JSON.stringify({ token: res.sessionToken, expiresAt: res.expiresAt } satisfies StoredGuestSession)
+  );
+  safeRemove(sessionStorage);
+  const identity: GuestIdentity = { email: res.email, name: res.name };
+  try {
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
+  } catch {
+    /* Storage unavailable — the session still works, just without the label. */
+  }
+  return identity;
 }
 
 function isSessionRejection(err: unknown): boolean {
