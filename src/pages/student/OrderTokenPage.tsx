@@ -6,6 +6,8 @@ import { Navbar } from "../../components/Navbar";
 import { TokenReel } from "../../components/TokenReel";
 import { formatOrderNumber } from "../../lib/orderNumber";
 import { useSSE, type OrderStatusDelta } from "../../hooks/useSSE";
+import { OrderTimeline } from "../../components/order/OrderTimeline";
+import { statusPresentation } from "../../lib/orderStatus";
 
 interface OrderDetail {
   id: string;
@@ -248,6 +250,15 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
 
       {/* Stub — secondary detail, recessed so it never competes with the number. */}
       <div className="rounded-b-3xl bg-surface-hover px-5 py-4">
+        {/* Progress lives down here, not beside the number. It answers "how far
+            along is it", which is a question the student asks *after* reading
+            the token — putting a four-step rail next to the digits would give
+            the page two things competing to be looked at first. It is driven by
+            the same `order.status` the pill above is, so the SSE delta moves
+            both at once. */}
+        <h3 className="sr-only">Order progress</h3>
+        <OrderTimeline status={order.status} className="pb-4" />
+
         <h3 className="sr-only">Items in this order</h3>
         <ul className="divide-y divide-gray-200/70">
           {order.items.map((line, idx) => (
@@ -271,23 +282,19 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
 /**
  * Status never relies on colour alone: icon + word carry it on their own.
  *
- * The wire values are shown as what they mean to the person holding the phone,
- * not as the database spells them — COOKED is the one that matters, and
- * "COOKED" is not what someone waiting at a counter is listening for. It gets
- * its own treatment rather than sharing the pending amber, because "go and
- * collect it" is the only state on this screen that asks the reader to move.
+ * The words and the colours now come from lib/orderStatus — the wire values are
+ * still shown as what they mean to the person holding the phone rather than as
+ * the database spells them ("COOKED" is not what someone waiting at a counter
+ * is listening for), but that mapping is no longer this page's private copy of
+ * the truth. Only the icon stays local, because it is specific to this pill.
  */
-const STATUS_VIEW: Record<string, { label: string; className: string; icon: "clock" | "bell" | "check" }> = {
-  PENDING: { label: "Placed", className: "border-amber-300 bg-amber-50 text-amber-900", icon: "clock" },
-  PREPARING: { label: "Being made", className: "border-amber-300 bg-amber-50 text-amber-900", icon: "clock" },
-  COOKED: { label: "Ready to collect", className: "border-brand-300 bg-brand-50 text-brand-700", icon: "bell" },
-  DELIVERED: { label: "Collected", className: "border-green-300 bg-green-50 text-green-800", icon: "check" },
-};
-
-const STATUS_ICON: Record<"clock" | "bell" | "check", string> = {
-  clock: "M12 8v4l2.5 2.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-  bell: "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1h6z",
-  check: "M5 13l4 4L19 7",
+const TONE_ICON: Record<string, string> = {
+  neutral: "M12 8v4l2.5 2.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  progress: "M12 8v4l2.5 2.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  ready:
+    "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1h6z",
+  done: "M5 13l4 4L19 7",
+  cancelled: "M15 9l-6 6M9 9l6 6",
 };
 
 function EyeIcon() {
@@ -316,22 +323,18 @@ function EyeOffIcon() {
 }
 
 function StatusPill({ status }: { status: string }) {
-  const view = STATUS_VIEW[status] ?? {
-    label: status.replace(/_/g, " "),
-    className: "border-amber-300 bg-amber-50 text-amber-900",
-    icon: "clock" as const,
-  };
+  const { label, pillClass, tone } = statusPresentation(status);
   return (
     <span
       // The word "Placed" also appears in the progress steps below, so tests
       // need an unambiguous handle on the pill itself.
       data-testid="order-status"
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${view.className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition-colors ${pillClass}`}
     >
       <svg className="h-3.5 w-3.5 shrink-0" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d={STATUS_ICON[view.icon]} />
+        <path strokeLinecap="round" strokeLinejoin="round" d={TONE_ICON[tone]} />
       </svg>
-      {view.label}
+      {label}
     </span>
   );
 }

@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { formatOrderNumber } from "../../lib/orderNumber";
+import { Badge } from "../ui";
+import { ACTIVE_STATUSES, statusPresentation } from "../../lib/orderStatus";
 
 export interface ActiveOrder {
   id: string;
@@ -10,20 +12,17 @@ export interface ActiveOrder {
 }
 
 /**
- * Kept here (not in the parent) so "what counts as active" has one
- * definition. An allow-list, not a deny-list of terminal statuses: a future
- * status the frontend doesn't know about (e.g. a REFUNDED added by a later
- * backend release) must default to "not active," not silently render as an
- * in-flight order forever.
+ * Re-exported from lib/orderStatus so "what counts as active" has one
+ * definition app-wide, rather than this file and the history page each keeping
+ * their own copy. The name is kept because StudentMenuPage imports it from
+ * here.
+ *
+ * Still an allow-list, not a deny-list of terminal statuses: a future status
+ * the frontend doesn't know about (e.g. a REFUNDED added by a later backend
+ * release) must default to "not active," not silently render as an in-flight
+ * order forever. That reasoning now lives beside the set in lib/orderStatus.ts.
  */
-export const ACTIVE_ORDER_STATUSES = new Set(["PENDING", "PREPARING", "COOKED"]);
-
-/** Only COOKED needs to grab attention — it's the one status that means "go collect it." */
-const STATUS_PILL_CLASSES: Record<string, string> = {
-  PENDING: "bg-gray-100 text-gray-600",
-  PREPARING: "bg-amber-100 text-amber-700",
-  COOKED: "bg-green-100 text-green-700",
-};
+export const ACTIVE_ORDER_STATUSES = ACTIVE_STATUSES;
 
 const MAX_VISIBLE = 3;
 
@@ -36,6 +35,16 @@ const MAX_VISIBLE = 3;
  * `orders` is `null` until the first fetch resolves, distinct from `[]`
  * (loaded, genuinely none) — collapsing the two used to render "No active
  * orders right now" as a false claim for the whole loading window.
+ *
+ * With nothing active this renders a single quiet line, not a full EmptyState
+ * block. It sits above the food on the menu page, and the menu *is* the
+ * browse-the-menu affordance an EmptyState would offer — a 12-line "you have no
+ * orders, go browse the menu" card pushing the actual menu below the fold would
+ * be the emptiest possible use of the most valuable space on the screen. The
+ * line still carries a real link (to history), so it is no longer the inert
+ * grey dead end it replaced. Returning `null` was the other candidate; the line
+ * wins because the banner's absence is indistinguishable from it not having
+ * loaded, and this states plainly that nothing is waiting for you.
  */
 export function ActiveOrdersBanner({ orders }: { orders: ActiveOrder[] | null }) {
   if (orders === null) return null;
@@ -44,9 +53,15 @@ export function ActiveOrdersBanner({ orders }: { orders: ActiveOrder[] | null })
 
   if (active.length === 0) {
     return (
-      <div className="bg-surface-muted rounded-xl p-4 text-center text-gray-500 text-sm">
-        No active orders right now
-      </div>
+      <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-gray-500">
+        No active orders.
+        <Link
+          to="/student/orders"
+          className="rounded font-semibold text-brand-700 underline underline-offset-4 transition-colors hover:text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+        >
+          See past orders
+        </Link>
+      </p>
     );
   }
 
@@ -54,32 +69,35 @@ export function ActiveOrdersBanner({ orders }: { orders: ActiveOrder[] | null })
   const hiddenCount = active.length - visible.length;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <h2 className="text-sm font-semibold text-gray-700">Active Orders</h2>
-      {visible.map((order) => (
-        <Link
-          key={order.id}
-          to={`/student/order/${order.id}`}
-          className="block bg-surface rounded-2xl flat-shadow hover:flat-shadow-hover transition-all p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
-        >
-          <div className="flex justify-between items-center">
-            <div>
-              <span className="font-semibold text-brand-900 mr-2">#{formatOrderNumber(order.orderNumber)}</span>
-              <span className="text-xs text-gray-500 uppercase tracking-wide">{order.kitchen}</span>
+      {visible.map((order) => {
+        const { label, pillClass } = statusPresentation(order.status);
+        return (
+          <Link
+            key={order.id}
+            to={`/student/order/${order.id}`}
+            className="block rounded-2xl border border-border bg-surface p-4 transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className="font-semibold tabular-nums text-brand-900">
+                  #{formatOrderNumber(order.orderNumber)}
+                </span>
+                <span className="ml-2 text-xs uppercase tracking-wide text-gray-500">{order.kitchen}</span>
+              </div>
+              <Badge className={pillClass}>{label}</Badge>
             </div>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_PILL_CLASSES[order.status]}`}>
-              {order.status}
-            </span>
-          </div>
-          <p className="text-sm mt-1 text-gray-700">
-            {order.items.map((i) => `${i.menuItem.name} ×${i.quantity}`).join(", ")}
-          </p>
-        </Link>
-      ))}
+            <p className="mt-1.5 truncate text-sm text-gray-600">
+              {order.items.map((i) => `${i.menuItem.name} ×${i.quantity}`).join(", ")}
+            </p>
+          </Link>
+        );
+      })}
       {hiddenCount > 0 && (
         <Link
           to="/student/orders"
-          className="block text-center text-sm font-medium text-brand-600 hover:text-brand-700 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 rounded-lg"
+          className="flex min-h-11 items-center justify-center rounded-lg text-sm font-semibold text-brand-600 transition-colors hover:text-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
         >
           View all ({hiddenCount} more)
         </Link>

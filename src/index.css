@@ -13,6 +13,42 @@
   --color-surface-hover: #f9fafb;
   --color-surface-muted: #f3f4f6;
 
+  /* Semantic status scale. Only 50/100/600/700 exist on purpose: 50/100 are the
+     two tints a pill or banner ever fills with, 600/700 the two the text or a
+     solid button ever uses. Adding the full 50-900 ramp would invite call sites
+     to pick shades that have never been contrast-checked against our surfaces.
+
+     `danger` is intentionally NOT an alias of brand-*. The brand red is the
+     app's primary action colour (Checkout, Add to cart), so reusing it for
+     destructive states would make "the main button" and "the dangerous button"
+     the same colour. danger sits a hue cooler than brand so the two read apart
+     when adjacent — see ConfirmDialog, which already hand-rolls red-700 for
+     exactly this reason. */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-600: #e11d48;
+  --color-danger-700: #be123c;
+
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+
+  /* Single neutral hairline. Every card/divider in the app currently reaches for
+     an ad-hoc gray-100/gray-200/black-5%; this is the one value they converge on
+     so a future theme has one knob to turn rather than three dozen. */
+  --color-border: #e5e7eb;
+
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 }

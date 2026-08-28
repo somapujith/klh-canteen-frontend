@@ -1,11 +1,65 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, SESSION_EXPIRED_KEY } from "../context/AuthContext";
 import type { School } from "../context/AuthContext";
 import { Logo, BrandMark } from "../components/Logo";
+import { Button } from "../components/ui";
 import { landingPathFor } from "../lib/landing";
 
 const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK Institution" };
+
+/* Demo quick-fill is a development affordance, not a product feature, so it is
+   gated rather than shipped. It used to render for KLH only, which gave DRK
+   users a visibly shorter card for no reason they could see — now the panel is
+   either on for the build or off for the build, and the DRK card reserves the
+   same height (see DEMO_ACCOUNTS) so the two steps measure the same.
+
+   Only KLH accounts are listed because only KLH accounts are seeded: every
+   script in Canteen-Backend/scripts (seedStudent, seedAdmin) inserts
+   *@klh.edu.in users, and the DRK enum value has no fixture behind it. No
+   credentials are invented here. */
+const SHOW_DEMO_LOGINS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_LOGINS === "true";
+
+/** Matches Canteen-Backend/scripts/seedStudent.ts and seedAdmin.ts defaults. */
+const DEMO_ACCOUNTS: Record<School, { label: string; identifier: string; password: string }[]> = {
+  KLH: [
+    { label: "Student account", identifier: "student@klh.edu.in", password: "student123" },
+    { label: "Admin account", identifier: "admin@klh.edu.in", password: "changeme123" },
+  ],
+  DRK: [],
+};
+
+const FIELD_CLASS =
+  "w-full rounded-xl border px-4 py-2.5 text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 transition-all duration-200 disabled:opacity-60";
+const FIELD_OK = "border-gray-200 focus:ring-brand-500/20 focus:border-brand-500";
+const FIELD_BAD = "border-danger-600 focus:ring-danger-600/20 focus:border-danger-600";
+
+function EyeIcon({ open }: { open: boolean }) {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      {open ? (
+        <>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      ) : (
+        <>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.9 5.7A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.9M6.5 8.1A17 17 0 0 0 2.5 12S6 18.5 12 18.5c1.4 0 2.6-.3 3.7-.8" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4l16 16" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** Field-level message. `role="alert"` so a screen reader hears it on submit. */
+function FieldError({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <p id={id} role="alert" className="text-xs text-danger-600">
+      {children}
+    </p>
+  );
+}
 
 /* Shared frame for both login steps, so the Raja's Bakery mark keeps the exact
    same size when the school picker swaps out for the form — one wrapper, one
@@ -63,17 +117,41 @@ export function LoginPage() {
   const [school, setSchool] = useState<School | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ identifier?: string; password?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const identifierRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   // A pure read. Clearing here would make the notice vanish in development,
   // where StrictMode double-invokes the initializer and commits the SECOND
   // result — by which point the first invocation has already consumed the flag.
   // login() and logout() own clearing it.
   const sessionExpired = sessionStorage.getItem(SESSION_EXPIRED_KEY) === "1";
 
+  /* Caps Lock is read off the event's modifier state rather than tracked, so it
+     is correct even when the key was toggled while the page was unfocused. */
+  function readCapsLock(e: KeyboardEvent<HTMLInputElement>) {
+    setCapsLock(e.getModifierState?.("CapsLock") ?? false);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!school) return;
+
+    // Validated here rather than by the native `required` bubble: that bubble is
+    // unstyled, uncontrollable, and disappears on the next keystroke, so it
+    // cannot be announced or re-read.
+    const next: { identifier?: string; password?: string } = {};
+    if (!identifier.trim()) next.identifier = "Enter your email or roll number";
+    if (!password) next.password = "Enter your password";
+    setFieldErrors(next);
+    if (next.identifier || next.password) {
+      (next.identifier ? identifierRef : passwordRef).current?.focus();
+      return;
+    }
+
     setError(null);
     setLoading(true);
     try {
@@ -97,6 +175,8 @@ export function LoginPage() {
     );
   }
 
+  const demoAccounts = SHOW_DEMO_LOGINS ? DEMO_ACCOUNTS[school] : [];
+
   return (
     <LoginShell>
       <div className="w-full bg-surface rounded-2xl flat-shadow p-8 space-y-8 rise-in">
@@ -114,6 +194,9 @@ export function LoginPage() {
               setIdentifier("");
               setPassword("");
               setError(null);
+              setFieldErrors({});
+              setShowPassword(false);
+              setCapsLock(false);
             }}
             className="text-xs text-gray-500 hover:text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded"
           >
@@ -122,91 +205,129 @@ export function LoginPage() {
         </div>
 
         {sessionExpired && !error && (
-          <div className="bg-amber-50 text-amber-800 p-3 rounded-lg text-sm flex items-start gap-2" role="status">
-            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="bg-warning-50 text-warning-700 p-3 rounded-lg text-sm flex items-start gap-2" role="status">
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>Your session expired. Please log in again.</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
           <div className="space-y-1">
             <label htmlFor="identifier" className="block text-sm font-medium text-gray-700">
               Email or Roll Number
             </label>
             <input
               id="identifier"
+              ref={identifierRef}
               type="text"
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              required
+              onChange={(e) => {
+                setIdentifier(e.target.value);
+                if (fieldErrors.identifier) setFieldErrors((p) => ({ ...p, identifier: undefined }));
+              }}
               disabled={loading}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-200 disabled:opacity-60"
+              aria-invalid={fieldErrors.identifier ? true : undefined}
+              aria-describedby={fieldErrors.identifier ? "identifier-error" : undefined}
+              className={`${FIELD_CLASS} ${fieldErrors.identifier ? FIELD_BAD : FIELD_OK}`}
               placeholder="e.g. 2420090001"
             />
+            {fieldErrors.identifier && <FieldError id="identifier-error">{fieldErrors.identifier}</FieldError>}
           </div>
+
           <div className="space-y-1">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-200 disabled:opacity-60"
-              placeholder="••••••••"
-            />
+            {/* The toggle sits inside the field's right edge, so the input keeps
+                `pr-12` to stop the value running underneath it. */}
+            <div className="relative">
+              <input
+                id="password"
+                ref={passwordRef}
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) setFieldErrors((p) => ({ ...p, password: undefined }));
+                }}
+                onKeyUp={readCapsLock}
+                onKeyDown={readCapsLock}
+                onBlur={() => setCapsLock(false)}
+                disabled={loading}
+                aria-invalid={fieldErrors.password ? true : undefined}
+                aria-describedby={fieldErrors.password ? "password-error" : capsLock ? "caps-hint" : undefined}
+                className={`${FIELD_CLASS} pr-12 ${fieldErrors.password ? FIELD_BAD : FIELD_OK}`}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                aria-controls="password"
+                disabled={loading}
+                className="absolute inset-y-0 right-0 w-11 min-h-11 flex items-center justify-center rounded-r-xl text-gray-400 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 transition-colors disabled:opacity-60"
+              >
+                <EyeIcon open={showPassword} />
+              </button>
+            </div>
+            {fieldErrors.password ? (
+              <FieldError id="password-error">{fieldErrors.password}</FieldError>
+            ) : (
+              // A quiet note, not an error: Caps Lock being on is a likely cause
+              // of a failed login, but it is not itself a problem to fix.
+              capsLock && (
+                <p id="caps-hint" className="text-xs text-gray-500">
+                  Caps Lock is on
+                </p>
+              )
+            )}
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2 animate-pulse">
-              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div role="alert" className="bg-danger-50 text-danger-700 p-3 rounded-lg text-sm flex items-start gap-2">
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>{error}</span>
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-brand-600 text-white py-3 font-medium hover-scale flat-shadow-hover flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:scale-100 transition-all"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Logging in...</span>
-              </>
-            ) : (
-              "Log In"
-            )}
-          </button>
+          {/* Explicit type="submit" — ui/Button defaults to "button". */}
+          <Button type="submit" size="lg" fullWidth loading={loading}>
+            {loading ? "Logging in..." : "Log In"}
+          </Button>
         </form>
 
-        {school === "KLH" && (
-          <div className="pt-6 border-t border-gray-100 flex flex-col gap-3">
+        {SHOW_DEMO_LOGINS && (
+          <div className="pt-6 border-t border-border flex flex-col gap-3">
             <p className="text-xs text-center text-gray-400 uppercase font-semibold tracking-wider">Quick Fill (Demo)</p>
-            <button
-              onClick={() => { setIdentifier("student@klh.edu.in"); setPassword("student123"); }}
-              className="w-full rounded-xl bg-gray-100 text-gray-700 py-2.5 text-sm font-medium hover:bg-gray-200 transition-colors"
-              type="button"
-            >
-              Student Account
-            </button>
-            <button
-              onClick={() => { setIdentifier("admin@klh.edu.in"); setPassword("changeme123"); }}
-              className="w-full rounded-xl bg-brand-50 text-brand-700 py-2.5 text-sm font-medium hover:bg-brand-100 transition-colors"
-              type="button"
-            >
-              Admin Account
-            </button>
+            {demoAccounts.length > 0 ? (
+              demoAccounts.map((account) => (
+                <Button
+                  key={account.identifier}
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => {
+                    setIdentifier(account.identifier);
+                    setPassword(account.password);
+                    setFieldErrors({});
+                  }}
+                >
+                  {account.label}
+                </Button>
+              ))
+            ) : (
+              /* DRK has no seeded accounts to offer. The panel still renders,
+                 with the reason stated, so the two schools' cards stay the same
+                 height instead of DRK silently getting a shorter card. Reserved
+                 height = 2 x md Button (44px) + the 12px gap between them. */
+              <p className="min-h-[6.25rem] flex items-center justify-center text-center text-xs text-gray-500">
+                No demo accounts are seeded for {SCHOOL_LABEL[school]} yet.
+              </p>
+            )}
           </div>
         )}
       </div>

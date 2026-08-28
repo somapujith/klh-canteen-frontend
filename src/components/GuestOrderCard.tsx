@@ -1,18 +1,31 @@
 import type { GuestOrder } from "../lib/guestSession";
 import { formatWindowTime } from "../lib/collectionWindows";
 import { formatOrderNumber } from "../lib/orderNumber";
+import { statusPresentation } from "../lib/orderStatus";
+import { OrderTimeline } from "./order/OrderTimeline";
+import { Badge } from "./ui";
 
-const STEPS: { status: GuestOrder["status"]; label: string }[] = [
-  { status: "PENDING", label: "Placed" },
-  { status: "COOKED", label: "Prepared" },
-  { status: "DELIVERED", label: "Collected" },
-];
-
-const STATUS_COPY: Record<GuestOrder["status"], string> = {
+/**
+ * What the card says under the token, per status.
+ *
+ * This is the only status copy left in this file. The label, the pill colour
+ * and the timeline position all come from lib/orderStatus now — this card used
+ * to carry its own three-step rail and its own word for COOKED ("Prepared",
+ * against the token page's "Ready to collect"), which is exactly the drift
+ * lib/orderStatus exists to stop. What stays local is the second sentence,
+ * because it is specific to a walk-up guest standing at a counter and has no
+ * equivalent on the student screens.
+ *
+ * Keyed off the raw wire string with a fallback, not off a Record<OrderStatus>:
+ * a status this build has never seen must produce quiet, honest copy rather
+ * than `undefined` rendered as a blank line.
+ */
+const STATUS_COPY: Record<string, string> = {
   PENDING: "Sent to the kitchen",
   PREPARING: "Being made right now",
   COOKED: "Prepared — collect it at the counter",
   DELIVERED: "Collected. Enjoy!",
+  CANCELLED: "This order was cancelled.",
 };
 
 /* Icons are inline so the card carries no dependency and each one can inherit
@@ -66,12 +79,14 @@ function HandIcon({ className = "" }: { className?: string }) {
  * having to hand the phone over.
  */
 export function GuestOrderCard({ order }: { order: GuestOrder }) {
-  // PREPARING is retired from the flow; a legacy order still in it sits
-  // between "Placed" and "Prepared", so light up the first step only.
-  const currentIndex =
-    order.status === "PREPARING" ? 0 : STEPS.findIndex((s) => s.status === order.status);
-  const isReady = order.status === "COOKED";
-  const isDone = order.status === "DELIVERED";
+  const { label, pillClass, tone } = statusPresentation(order.status);
+  const isReady = tone === "ready";
+  const isDone = tone === "done";
+  // Branch on tone, not on the wire string: an unknown status resolves to
+  // `neutral` and gets the same quiet amber treatment PENDING does, instead of
+  // falling through every ternary into the "collected" styling and telling a
+  // guest their food is done when nobody knows that.
+  const isTerminalBad = tone === "cancelled";
 
   const token = formatOrderNumber(order.orderNumber);
   // Screen readers say "one thousand and forty-two" for 1042; spacing the digits
@@ -82,38 +97,35 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
   const StatusIcon = isDone ? CheckIcon : isReady ? BellIcon : ClockIcon;
 
   return (
-    <article className="bg-surface rounded-2xl flat-shadow border border-gray-100 overflow-hidden rise-in">
+    <article className="bg-surface rounded-2xl flat-shadow border border-border overflow-hidden rise-in">
       {/* ---- Token hero ------------------------------------------------ */}
       <div
         className={`px-5 pt-4 pb-5 border-b transition-colors duration-300 motion-reduce:transition-none ${
           isReady
-            ? "bg-emerald-50 border-emerald-100"
-            : isDone
-            ? "bg-surface-muted border-gray-200"
-            : "bg-amber-50 border-amber-100"
+            ? "bg-success-50 border-success-100"
+            : isDone || isTerminalBad
+            ? "bg-surface-muted border-border"
+            : "bg-warning-50 border-warning-100"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-600 truncate">
             {order.kitchen} token
           </p>
-          <span
-            className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
-              isReady
-                ? "bg-emerald-600 text-white"
-                : isDone
-                ? "bg-gray-200 text-gray-700"
-                : "bg-amber-500 text-amber-950"
-            }`}
+          {/* The words and the colours come from lib/orderStatus — this card no
+              longer prints the raw wire value ("COOKED") at a guest. */}
+          <Badge
+            className={`${pillClass} shrink-0 uppercase tracking-wide font-bold`}
+            size="sm"
           >
-            <StatusIcon className="h-3 w-3" />
-            {order.status}
-          </span>
+            <StatusIcon className="h-3 w-3 shrink-0" />
+            {label}
+          </Badge>
         </div>
 
         <p
           className={`mt-1 font-black tabular-nums tracking-tight leading-[0.95] text-6xl sm:text-7xl ${
-            isDone ? "text-gray-500" : "text-gray-900"
+            isDone || isTerminalBad ? "text-gray-500" : "text-gray-900"
           }`}
           aria-hidden="true"
         >
@@ -126,7 +138,7 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
 
         <p
           className={`mt-2.5 flex items-start gap-1.5 text-sm font-semibold ${
-            isDone ? "text-gray-600" : "text-gray-800"
+            isDone || isTerminalBad ? "text-gray-600" : "text-gray-800"
           }`}
         >
           <HandIcon className="h-4 w-4 shrink-0 mt-0.5 text-gray-500" />
@@ -139,39 +151,16 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
       {/* ---- Progress + contents --------------------------------------- */}
       <div className="p-5 space-y-5">
         <p className="text-sm font-medium text-gray-600" aria-live="polite">
-          {STATUS_COPY[order.status]}
+          {STATUS_COPY[order.status] ?? `Status: ${label}`}
         </p>
 
-        <ol className="flex items-center gap-1.5" aria-label="Order progress">
-          {STEPS.map((step, idx) => {
-            const reached = idx <= currentIndex;
-            const isCurrent = idx === currentIndex;
-            return (
-              <li
-                key={step.status}
-                className="flex-1 min-w-0"
-                aria-current={isCurrent ? "step" : undefined}
-              >
-                <div
-                  className={`h-1.5 rounded-full transition-colors duration-300 motion-reduce:transition-none ${
-                    reached ? "bg-brand-600" : "bg-gray-200"
-                  }`}
-                />
-                <span
-                  className={`mt-1.5 flex items-center gap-1 text-[11px] font-semibold ${
-                    reached ? "text-brand-700" : "text-gray-500"
-                  }`}
-                >
-                  {reached && !isCurrent && <CheckIcon className="h-3 w-3 shrink-0" />}
-                  <span className="truncate">{step.label}</span>
-                  <span className="sr-only">
-                    {isCurrent ? "— current step" : reached ? "— done" : "— not yet"}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
+        {/* The same four-step rail the student token page renders, so a customer
+            who checks on one screen and then the other reads the same words.
+            OrderTimeline handles the off-timeline statuses itself (CANCELLED,
+            or anything this build does not recognise) by swapping the rail for
+            a terminal row, which is why there is no branch here. */}
+        <h3 className="sr-only">Order progress</h3>
+        <OrderTimeline status={order.status} />
 
         {order.collectionAt && (
           <div className="flex items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 text-sm font-medium text-gray-700">
@@ -187,7 +176,7 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
               <span className="text-gray-600 shrink-0 tabular-nums">× {line.quantity}</span>
             </li>
           ))}
-          <li className="flex items-center justify-between pt-2 mt-1 border-t border-gray-200 font-semibold text-brand-900">
+          <li className="flex items-center justify-between pt-2 mt-1 border-t border-border font-semibold text-brand-900">
             <span>Total</span>
             <span className="tabular-nums">₹{order.totalAmount}</span>
           </li>
