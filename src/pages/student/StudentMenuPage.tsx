@@ -216,7 +216,7 @@ export function StudentMenuPage() {
           stays focusable — WCAG 2.4.11 (focus not obscured). */}
       <div inert={cartOpen}>
       <Navbar
-        title="Menu"
+        title="Rajas Bakery"
         cartCount={cartCount}
         onCartClick={cartCount > 0 ? () => navigate("/student/checkout") : undefined}
         activeOrdersCount={activeOrdersCount}
