@@ -5,7 +5,7 @@ import { useCart } from "../../context/CartContext";
 import { Navbar } from "../../components/Navbar";
 import { SkeletonCard } from "../../components/LoadingState";
 import { CartBar } from "../../components/CartBar";
-import { ActiveOrdersBanner, ACTIVE_ORDER_STATUSES, type ActiveOrder } from "../../components/student/ActiveOrdersBanner";
+import { ACTIVE_ORDER_STATUSES, type ActiveOrder } from "../../lib/activeOrders";
 import { MenuFilters, filterItems, searchAllCategories, type MenuSearchHit } from "../../components/menu/MenuFilters";
 import { Button, EmptyState } from "../../components/ui";
 import { MenuItemCard } from "../../components/menu/MenuItemCard";
@@ -153,6 +153,11 @@ export function StudentMenuPage() {
     if (menuSnapshot.size > 0) syncStock(menuSnapshot);
   }, [menuSnapshot, syncStock]);
 
+  const activeOrdersCount = useMemo(
+    () => (orders === null ? undefined : orders.filter((o) => ACTIVE_ORDER_STATUSES.has(o.status)).length),
+    [orders]
+  );
+
   const cartCount = cartItems.reduce((sum, line) => sum + line.qty, 0);
   const qtyInCart = useCallback(
     (id: string) => cartItems.find((line) => line.menuItemId === id)?.qty ?? 0,
@@ -214,11 +219,8 @@ export function StudentMenuPage() {
         title="Menu"
         cartCount={cartCount}
         onCartClick={cartCount > 0 ? () => navigate("/student/checkout") : undefined}
+        activeOrdersCount={activeOrdersCount}
       />
-
-      <div className="mx-auto w-full max-w-[100rem] px-4 pt-4">
-        <ActiveOrdersBanner orders={orders} />
-      </div>
 
       <div className="mx-auto w-full max-w-[100rem] px-4 pt-4">
         <MenuFilters

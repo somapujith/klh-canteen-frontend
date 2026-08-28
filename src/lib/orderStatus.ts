@@ -98,7 +98,7 @@ export const TONE_PILL_CLASSES: Record<OrderTone, string> = {
  * Statuses that mean "this order is still in flight".
  *
  * An allow-list, not a deny-list of terminal statuses — the same reasoning
- * ActiveOrdersBanner records for ACTIVE_ORDER_STATUSES: a status a later
+ * lib/activeOrders.ts records for ACTIVE_ORDER_STATUSES: a status a later
  * backend release adds (a REFUNDED, say) must default to "not active" rather
  * than sitting in the customer's active list forever because this build had
  * never heard of it. Adding a status to the wire must never silently change

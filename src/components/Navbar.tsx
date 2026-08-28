@@ -16,9 +16,15 @@ interface NavbarProps {
    * the page was navigated to or opened cold from a pasted URL.
    */
   backTo?: string;
+  /**
+   * Count badge for the header "Active Orders" button. Omit to hide the
+   * button — it only makes sense on the top-level student menu page, not on
+   * every screen that renders a Navbar.
+   */
+  activeOrdersCount?: number;
 }
 
-export function Navbar({ title, cartCount, onCartClick, backTo }: NavbarProps) {
+export function Navbar({ title, cartCount, onCartClick, backTo, activeOrdersCount }: NavbarProps) {
   const { name, logout } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -65,6 +71,30 @@ export function Navbar({ title, cartCount, onCartClick, backTo }: NavbarProps) {
       </div>
       
       <div className="flex items-center gap-1 sm:gap-2">
+      {activeOrdersCount !== undefined && (
+        <Link
+          to={activeOrdersCount > 0 ? "/student/orders?filter=active" : "/student/orders"}
+          aria-label={
+            activeOrdersCount > 0
+              ? `Active orders, ${activeOrdersCount} in progress`
+              : "Order history"
+          }
+          className="relative p-2 rounded-full text-gray-600 hover:bg-surface-muted hover:text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+        >
+          <svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 3.75h12v16.5l-2.25-1.5-2.25 1.5-2.25-1.5-2.25 1.5L6 18.75V3.75Z" />
+            <path strokeLinecap="round" d="M9.75 8.25h4.5M9.75 12h4.5" />
+          </svg>
+          {activeOrdersCount > 0 && (
+            <span
+              key={activeOrdersCount}
+              className="count-pop absolute -top-0.5 -right-0.5 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-brand-700 text-white text-[0.7rem] font-bold flex items-center justify-center shadow-sm tabular-nums"
+            >
+              {activeOrdersCount}
+            </span>
+          )}
+        </Link>
+      )}
       {onCartClick && (cartCount ?? 0) > 0 && (
         <button
           onClick={onCartClick}

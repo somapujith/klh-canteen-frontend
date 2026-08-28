@@ -17,7 +17,7 @@ vi.mock("../../lib/apiClient", () => ({
  * One useSSE call for the whole page (MENU_UPDATE + ORDER_UPDATE combined) is
  * the thing under test here — see AdminDashboardPage.tsx for the established
  * one-connection-per-page convention this mirrors, rather than a second,
- * separate useSSE call (e.g. one hidden inside ActiveOrdersBanner) opening
+ * separate useSSE call (e.g. one hidden inside the active-orders badge) opening
  * its own EventSource just for order updates. Reassigned on every call, same
  * as OrderTokenPage.test.tsx — a hook fires once per render, not once per
  * connection, so counting calls would just count renders.
@@ -78,15 +78,15 @@ function renderPage() {
 it("opens one event stream for the whole page, covering both menu and order updates", async () => {
   renderPage();
 
-  await waitFor(() => expect(screen.getByText(/1234/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByLabelText(/active orders, 1 in progress/i)).toBeInTheDocument());
 
   expect(captured!.types).toEqual(expect.arrayContaining(["MENU_UPDATE", "ORDER_UPDATE"]));
 });
 
-it("drops an order from the active-orders banner when its status delta turns terminal, without refetching", async () => {
+it("drops the navbar's active-orders badge when its status delta turns terminal, without refetching", async () => {
   renderPage();
 
-  await waitFor(() => expect(screen.getByText(/1234/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByLabelText(/active orders, 1 in progress/i)).toBeInTheDocument());
   const callsBefore = (apiClient.get as any).mock.calls.length;
 
   act(() => {
@@ -96,8 +96,8 @@ it("drops an order from the active-orders banner when its status delta turns ter
     );
   });
 
-  expect(screen.queryByText(/1234/)).not.toBeInTheDocument();
-  expect(screen.getByText(/no active orders/i)).toBeInTheDocument();
+  expect(screen.queryByLabelText(/active orders,/i)).not.toBeInTheDocument();
+  expect(screen.getByLabelText(/order history/i)).toBeInTheDocument();
   expect((apiClient.get as any).mock.calls.length).toBe(callsBefore);
 });
 
@@ -111,7 +111,7 @@ it("drops an order from the active-orders banner when its status delta turns ter
 it("does not refetch orders on an unrelated menu delta", async () => {
   renderPage();
 
-  await waitFor(() => expect(screen.getByText(/1234/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByLabelText(/active orders, 1 in progress/i)).toBeInTheDocument());
   const ordersCallsBefore = (apiClient.get as any).mock.calls.filter((c: any[]) => c[0] === "/orders/my").length;
 
   act(() => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { Navbar } from "../../components/Navbar";
@@ -60,7 +60,11 @@ export function OrderHistoryPage() {
   // none) — the same distinction ActiveOrdersBanner documents. Collapsing the
   // two rendered "No orders yet" as a false claim for the whole loading window.
   const [orders, setOrders] = useState<OrderSummary[] | null>(null);
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const [searchParams] = useSearchParams();
+  // Arriving from the navbar's Active Orders button (?filter=active) should
+  // land straight on that tab, not make the student re-select it every time.
+  const initialFilter: Filter = searchParams.get("filter") === "active" ? "ACTIVE" : "ALL";
+  const [filter, setFilter] = useState<Filter>(initialFilter);
 
   const fetchOrders = useCallback(() => {
     return apiClient.get<OrderSummary[]>("/orders/my", token ?? undefined).then(setOrders);
