@@ -43,6 +43,7 @@ const existingItem: MenuItem = {
   stockQty: 12,
   categoryId: "cat-1",
   isAvailable: true,
+  sortOrder: 0,
 };
 
 function renderModal(editing: MenuItem | null, onSaved = vi.fn()) {
