@@ -82,8 +82,27 @@
    bottom-right corner from `sm` up and the full bottom edge on phones.
    =========================================================================== */
 
+/* ===========================================================================
+   TYPOGRAPHY — single source of truth.
+
+   One typeface for the whole app: Geist, loaded in index.html via Google
+   Fonts (weights 400/500/600/700). Nothing else declares font-family — do
+   not add a second @import, a per-component Google Fonts link, or an inline
+   font-family override. If a screen needs a different typeface, change it
+   here, not at the call site.
+
+   Weight scale — use Tailwind's utilities, not raw font-weight:
+     font-normal    400  Body copy, default text.
+     font-medium    500  Labels, secondary emphasis, nav items.
+     font-semibold  600  Card titles, section headings, active states.
+     font-bold      700  Page titles, prices, hero numbers.
+
+   font-mono is the one sanctioned exception — reserved for literal data that
+   benefits from fixed-width glyphs (order IDs, error stack traces), not for
+   general emphasis. See ErrorBoundary.tsx and AdminStudentsPage.tsx.
+   =========================================================================== */
 body {
-  font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: 'Geist', system-ui, -apple-system, "Segoe UI", sans-serif;
   background-color: #f9fafb;
   color: #111827;
   -webkit-font-smoothing: antialiased;
