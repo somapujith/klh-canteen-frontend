@@ -12,30 +12,28 @@ const SCHOOL_LABEL: Record<School, string> = { KLH: "KLH University", DRK: "DRK 
 
 /** Both schools get a Google button, but with different backing flows: DRK
  *  auto-creates on first sign-in (no roster exists to match against), KLH
- *  routes through a username/password setup step against its existing
- *  bulk-imported roster (see KlhGoogleSetupForm below). Separate OAuth
- *  client per school — separate GCP projects/consent screens, so either can
- *  be rotated or reconfigured without touching the other. */
+ *  routes through a username/password setup step where the student picks
+ *  their own login (see KlhGoogleSetupForm below). KLH's Google sign-in
+ *  deliberately reuses the GUEST client, not a KLH-institutional one — any
+ *  verified Google account works, there is no klh.edu.in requirement. */
 const GOOGLE_CLIENT_ID: Record<School, string | undefined> = {
   DRK: import.meta.env.VITE_GOOGLE_CLIENT_ID_DRK as string | undefined,
-  KLH: import.meta.env.VITE_GOOGLE_CLIENT_ID_KLH as string | undefined,
+  KLH: import.meta.env.VITE_GOOGLE_CLIENT_ID_GUEST as string | undefined,
 };
 
 interface KlhGoogleSetup {
   setupToken: string;
+  /** The Google account's own local-part, offered as a starting point only —
+   *  always editable, never inferred as a roll number. */
   suggestedUsername: string;
-  usernameEditable: boolean;
-  accountExists: boolean;
 }
 
 /**
  * Phase 2 of KLH's Google sign-in: shown after /auth/login/google/klh/start
- * returns a setup ticket. Username is locked to the roll number extracted
- * from the student's klh.edu.in address unless no digits were found there
- * (a name-based address), in which case it's a free-text field. Always
- * shown on a first-time Google sign-in — even for an already-provisioned
- * roster account — per product spec: this screen is also how that account
- * gets a password it can use outside Google from now on.
+ * returns a setup ticket. Always creates a brand new account — there is no
+ * roster to match a Google identity against once any Google account is
+ * accepted — so the student picks their own username and password here,
+ * which becomes their login (by itself, or via Google) from then on.
  */
 function KlhGoogleSetupForm({
   setup,
@@ -76,14 +74,8 @@ function KlhGoogleSetupForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <div className="text-center space-y-1">
-        <h2 className="text-xl font-semibold text-gray-800">
-          {setup.accountExists ? "Confirm your account" : "Set up your account"}
-        </h2>
-        <p className="text-sm text-gray-500">
-          {setup.accountExists
-            ? "This roll number already has an account. Set a password to link it to Google."
-            : "Choose a password to finish creating your account."}
-        </p>
+        <h2 className="text-xl font-semibold text-gray-800">Set up your account</h2>
+        <p className="text-sm text-gray-500">Choose a username and password to finish creating your account.</p>
       </div>
 
       <div className="space-y-1">
@@ -98,16 +90,12 @@ function KlhGoogleSetupForm({
             setUsername(e.target.value);
             if (fieldErrors.username) setFieldErrors((p) => ({ ...p, username: undefined }));
           }}
-          disabled={loading || !setup.usernameEditable}
+          disabled={loading}
           aria-invalid={fieldErrors.username ? true : undefined}
           aria-describedby={fieldErrors.username ? "klh-google-username-error" : undefined}
-          className={`${FIELD_CLASS} ${fieldErrors.username ? FIELD_BAD : FIELD_OK} ${!setup.usernameEditable ? "text-gray-500" : ""}`}
+          className={`${FIELD_CLASS} ${fieldErrors.username ? FIELD_BAD : FIELD_OK}`}
         />
-        {fieldErrors.username ? (
-          <FieldError id="klh-google-username-error">{fieldErrors.username}</FieldError>
-        ) : !setup.usernameEditable ? (
-          <p className="text-xs text-gray-500">Detected from your roll number — this can't be changed.</p>
-        ) : null}
+        {fieldErrors.username && <FieldError id="klh-google-username-error">{fieldErrors.username}</FieldError>}
       </div>
 
       <div className="space-y-1">
@@ -663,7 +651,7 @@ export function LoginPage() {
           <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span>First-time login? Use "Sign in with Google" below with your klh.edu.in account.</span>
+          <span>First-time login? Use "Sign in with Google" below with any Google account.</span>
         </div>
 
         <PasswordLoginForm
