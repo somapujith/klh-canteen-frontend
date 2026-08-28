@@ -115,7 +115,11 @@ export function OrderHistoryPage() {
       <div className="mx-auto w-full max-w-lg px-4 pb-16 pt-4">
         {/* Filters stay mounted through loading so the control row does not pop
             into place under the user's thumb when the fetch lands. */}
-        <div role="tablist" aria-label="Filter orders" className="flex gap-2">
+        <div
+          role="tablist"
+          aria-label="Filter orders"
+          className="flex gap-1 rounded-2xl border border-border bg-surface p-1 flat-shadow"
+        >
           {FILTERS.map(({ id, label }) => {
             const selected = filter === id;
             return (
@@ -125,10 +129,10 @@ export function OrderHistoryPage() {
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setFilter(id)}
-                className={`min-h-11 rounded-full px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
+                className={`flex-1 min-h-10 rounded-xl px-4 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
                   selected
-                    ? "bg-brand-600 text-white"
-                    : "border border-border bg-surface text-gray-600 hover:bg-surface-hover hover:text-gray-900"
+                    ? "bg-brand-600 text-white shadow-sm shadow-brand-500/30"
+                    : "text-gray-500 hover:bg-surface-hover hover:text-gray-900"
                 }`}
               >
                 {label}
@@ -176,11 +180,14 @@ export function OrderHistoryPage() {
 
         {!loading &&
           groups.map(([day, dayOrders]) => (
-            <section key={day} className="mt-6 first:mt-5">
-              <h2 className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">
-                {day}
-              </h2>
-              <div className="space-y-2.5">
+            <section key={day} className="mt-7 first:mt-6">
+              <div className="mb-3 flex items-center gap-3 px-1">
+                <h2 className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
+                  {day}
+                </h2>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <div className="space-y-3">
                 {dayOrders.map((order) => (
                   <OrderRow key={order.id} order={order} />
                 ))}
@@ -192,26 +199,59 @@ export function OrderHistoryPage() {
   );
 }
 
+/** Left accent rail colour, keyed off the same tone the status pill already uses. */
+const RAIL_TONE_CLASSES: Record<string, string> = {
+  neutral: "bg-gray-300",
+  progress: "bg-warning-600",
+  ready: "bg-success-600",
+  done: "bg-gray-300",
+  cancelled: "bg-danger-600",
+};
+
 function OrderRow({ order }: { order: OrderSummary }) {
-  const { label, pillClass } = statusPresentation(order.status);
+  const { label, pillClass, tone } = statusPresentation(order.status);
   const summary = order.items.map((i) => `${i.menuItem.name} ×${i.quantity}`).join(", ");
+  const itemCount = order.items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
     <Link
       to={`/student/order/${order.id}`}
-      className="block rounded-2xl border border-border bg-surface p-4 transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+      className="group relative flex overflow-hidden rounded-2xl border border-border bg-surface flat-shadow transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lg hover:shadow-gray-900/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className="font-semibold tabular-nums text-brand-900">
-            #{formatOrderNumber(order.orderNumber)}
-          </span>
-          <span className="ml-2 text-xs text-gray-500">{timeLabel(order.createdAt)}</span>
+      <span aria-hidden="true" className={`w-1.5 shrink-0 ${RAIL_TONE_CLASSES[tone]}`} />
+      <div className="min-w-0 flex-1 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold tracking-tight tabular-nums text-gray-900">
+                #{formatOrderNumber(order.orderNumber)}
+              </span>
+              <span className="text-xs font-medium text-gray-400">{timeLabel(order.createdAt)}</span>
+            </div>
+            <p className="mt-1 truncate text-sm text-gray-500">{summary}</p>
+          </div>
+          <Badge className={`${pillClass} shrink-0`}>{label}</Badge>
         </div>
-        <Badge className={pillClass}>{label}</Badge>
+
+        <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
+          <span className="text-xs font-medium text-gray-400">
+            {itemCount} item{itemCount === 1 ? "" : "s"}
+          </span>
+          <span className="text-base font-bold tabular-nums text-gray-900">
+            ₹{order.totalAmount}
+          </span>
+        </div>
       </div>
-      <p className="mt-1.5 truncate text-sm text-gray-600">{summary}</p>
-      <p className="mt-1.5 font-semibold tabular-nums text-brand-900">₹{order.totalAmount}</p>
+      <svg
+        aria-hidden="true"
+        className="mr-4 mt-4 h-4 w-4 shrink-0 self-start text-gray-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-gray-400"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
     </Link>
   );
 }
