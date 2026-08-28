@@ -35,3 +35,8 @@ dist-ssr
 /playwright/.cache/
 .vercel
 .env*
+
+# Throwaway browser-driving scripts (screenshots, one-off DOM measurements).
+# They hardcode a scratch output path and a dev-server port, so they are only
+# ever meaningful to the session that wrote them.
+_*.mjs
