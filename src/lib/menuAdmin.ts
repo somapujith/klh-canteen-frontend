@@ -244,3 +244,42 @@ export function reorderCategories(
 
   return { categories: renumbered, patches };
 }
+
+// ---------------------------------------------------------------------------
+// Item ordering — identical algorithm to reorderCategories above, scoped to
+// one category's own item list rather than the top-level category list.
+// ---------------------------------------------------------------------------
+
+/**
+ * Moves the item at `from` to index `to` within `category.items`, then
+ * renumbers every item in that category from 0. See reorderCategories for
+ * why renumbering everything (not just the moved pair) is deliberate.
+ */
+export function reorderItems(
+  category: Category,
+  from: number,
+  to: number
+): { category: Category; patches: SortOrderPatch[] } {
+  const items = category.items;
+  if (
+    from === to ||
+    from < 0 ||
+    to < 0 ||
+    from >= items.length ||
+    to >= items.length
+  ) {
+    return { category, patches: [] };
+  }
+
+  const next = [...items];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+
+  const patches: SortOrderPatch[] = [];
+  const renumbered = next.map((item, index) => {
+    if (item.sortOrder !== index) patches.push({ id: item.id, sortOrder: index });
+    return item.sortOrder === index ? item : { ...item, sortOrder: index };
+  });
+
+  return { category: { ...category, items: renumbered }, patches };
+}

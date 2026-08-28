@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import type { MenuItem } from "../../../types/admin";
 import { menuImageSrc } from "../../../lib/menu";
 import {
@@ -36,6 +36,18 @@ interface Props {
   /** This item's notification is in flight. */
   notifying: boolean;
   onNotifyRestock: () => void;
+  /**
+   * Reordering, mirroring CategorySection's own handle/up-down treatment
+   * for categories. `index`/`total` drive the keyboard controls, since
+   * native drag and drop is not reachable from a keyboard. Suppressed
+   * (handle hidden, buttons absent) while a search or filter narrows the
+   * visible list — "move to position 2" would mean a different thing than
+   * what the admin can actually see.
+   */
+  index: number;
+  total: number;
+  reorderable: boolean;
+  onMove: (from: number, to: number) => void;
 }
 
 export function MenuItemRow({
@@ -47,7 +59,32 @@ export function MenuItemRow({
   requestCount,
   notifying,
   onNotifyRestock,
+  index,
+  total,
+  reorderable,
+  onMove,
 }: Props) {
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleDragStart(e: DragEvent<HTMLElement>) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+  }
+
+  function handleDragOver(e: DragEvent<HTMLElement>) {
+    if (!reorderable) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOver(true);
+  }
+
+  function handleDrop(e: DragEvent<HTMLElement>) {
+    if (!reorderable) return;
+    e.preventDefault();
+    setDragOver(false);
+    const from = Number(e.dataTransfer.getData("text/plain"));
+    if (Number.isInteger(from)) onMove(from, index);
+  }
   const status = itemStatus(item);
   const style = STATUS_STYLE[status];
   const compact = density === "compact";
@@ -116,12 +153,28 @@ export function MenuItemRow({
 
   return (
     <li
+      onDragOver={handleDragOver}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
       className={`flex flex-col gap-3 px-3 sm:flex-row sm:items-center sm:gap-4 ${
         compact ? "py-1.5" : "py-3"
-      } ${status === "HIDDEN" ? "bg-surface-muted/60" : ""}`}
+      } ${status === "HIDDEN" ? "bg-surface-muted/60" : ""} ${dragOver ? "ring-2 ring-inset ring-brand-500" : ""}`}
     >
       {/* Identity */}
       <div className="flex min-w-0 flex-1 items-center gap-3">
+        {reorderable && (
+          <span
+            draggable
+            onDragStart={handleDragStart}
+            aria-hidden="true"
+            title="Drag to reorder"
+            className="hidden shrink-0 cursor-grab px-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing sm:block"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M7 4a1 1 0 100 2 1 1 0 000-2zm6 0a1 1 0 100 2 1 1 0 000-2zM7 9a1 1 0 100 2 1 1 0 000-2zm6 0a1 1 0 100 2 1 1 0 000-2zm-6 5a1 1 0 100 2 1 1 0 000-2zm6 0a1 1 0 100 2 1 1 0 000-2z" />
+            </svg>
+          </span>
+        )}
         {imageSrc && !imageFailed ? (
           <img
             src={imageSrc}
@@ -290,6 +343,21 @@ export function MenuItemRow({
         )}
 
         <div className="flex items-center">
+          {reorderable && total > 1 && (
+            <>
+              <IconButton label={`Move ${item.name} up`} onClick={() => onMove(index, index - 1)} disabled={index === 0}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+              </IconButton>
+              <IconButton
+                label={`Move ${item.name} down`}
+                onClick={() => onMove(index, index + 1)}
+                disabled={index === total - 1}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </IconButton>
+              <span className="mx-1 h-5 w-px bg-gray-200" aria-hidden="true" />
+            </>
+          )}
           <IconButton label={`Edit ${item.name}`} onClick={onEdit}>
             <path
               strokeLinecap="round"
@@ -315,19 +383,22 @@ function IconButton({
   onClick,
   children,
   tone = "default",
+  disabled = false,
 }: {
   label: string;
   onClick: () => void;
   children: React.ReactNode;
   tone?: "default" | "danger";
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
       title={label}
-      className={`flex h-11 w-11 items-center justify-center rounded-xl text-gray-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+      className={`flex h-11 w-11 items-center justify-center rounded-xl text-gray-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-30 ${
         tone === "danger" ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-surface-hover hover:text-brand-700"
       }`}
     >

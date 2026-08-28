@@ -26,6 +26,7 @@ import {
   loadMenuPrefs,
   patchItemIn,
   reorderCategories,
+  reorderItems,
   saveMenuPrefs,
   type MenuDensity,
   type MenuFilter,
@@ -350,6 +351,30 @@ export function AdminMenuPage() {
     }
   }
 
+  /** Item-level sibling of moveCategory — same optimistic-move-then-persist
+   *  shape, scoped to one category's own item list. */
+  async function moveItem(categoryId: string, from: number, to: number) {
+    const category = categories.find((c) => c.id === categoryId);
+    if (!category) return;
+
+    const { category: reordered, patches } = reorderItems(category, from, to);
+    if (patches.length === 0) return;
+
+    const previous = categories;
+    setCategories(categories.map((c) => (c.id === categoryId ? reordered : c)));
+
+    try {
+      await Promise.all(
+        patches.map((patch) =>
+          apiClient.patch(`/admin/menu-items/${patch.id}`, { sortOrder: patch.sortOrder }, token ?? undefined)
+        )
+      );
+    } catch (err) {
+      setCategories(previous);
+      showToast(adminErrorMessage(err, "Could not save the new order"), "error");
+    }
+  }
+
   return (
     <div className="min-h-screen bg-surface-muted pb-16">
       <AdminNav />
@@ -425,6 +450,7 @@ export function AdminMenuPage() {
                 onPatchItem={patchItem}
                 onEditItem={(item) => setItemModal({ editingId: item.id })}
                 onDeleteItem={(item) => setPending({ kind: "deleteItem", item })}
+                onMoveItem={(from, to) => moveItem(category.id, from, to)}
                 stockRequests={requestsByItem}
                 notifyingItemId={notifying}
                 onNotifyRestock={notifyRestock}

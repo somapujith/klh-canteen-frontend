@@ -25,6 +25,8 @@ interface Props {
   onPatchItem: (itemId: string, patch: Partial<MenuItem>) => Promise<boolean>;
   onEditItem: (item: MenuItem) => void;
   onDeleteItem: (item: MenuItem) => void;
+  /** Reorders items within this category. Same reorderable gate as onMove. */
+  onMoveItem: (from: number, to: number) => void;
   /** menuItemId -> how many students are waiting for it to come back. */
   stockRequests: Map<string, number>;
   /** The item whose notification is in flight, if any. */
@@ -48,6 +50,7 @@ export function CategorySection({
   onPatchItem,
   onEditItem,
   onDeleteItem,
+  onMoveItem,
   stockRequests,
   notifyingItemId,
   onNotifyRestock,
@@ -231,7 +234,7 @@ export function CategorySection({
         </div>
       ) : (
         <ul className="divide-y divide-gray-100">
-          {category.items.map((item) => (
+          {category.items.map((item, index) => (
             <MenuItemRow
               key={item.id}
               item={item}
@@ -242,6 +245,10 @@ export function CategorySection({
               requestCount={stockRequests.get(item.id) ?? 0}
               notifying={notifyingItemId === item.id}
               onNotifyRestock={() => onNotifyRestock(item.id)}
+              index={index}
+              total={category.items.length}
+              reorderable={reorderable}
+              onMove={onMoveItem}
             />
           ))}
         </ul>

@@ -126,6 +126,8 @@ export interface MenuItem {
   stockQty: number;
   categoryId: string;
   isAvailable: boolean;
+  /** Position within its category, ascending — mirrors Category.sortOrder. */
+  sortOrder: number;
 }
 
 export interface Category {

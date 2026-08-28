@@ -173,7 +173,14 @@ export function MenuItemFormModal({ editing, categories, defaultCategoryId, toke
         if (itemId) {
           await apiClient.patch(`/admin/menu-items/${itemId}`, body, token ?? undefined);
         } else {
-          const created = await apiClient.post<MenuItem>("/admin/menu-items", body, token ?? undefined);
+          // New items append to the end of their category's list — matches
+          // AdminMenuPage's own `categories.length` default for a new category.
+          const targetCategory = categories.find((c) => c.id === form.categoryId);
+          const created = await apiClient.post<MenuItem>(
+            "/admin/menu-items",
+            { ...body, sortOrder: targetCategory?.items.length ?? 0 },
+            token ?? undefined
+          );
           itemId = created.id;
           createdIdRef.current = created.id;
         }
