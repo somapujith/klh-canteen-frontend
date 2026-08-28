@@ -390,7 +390,11 @@ function confirmBody(pending: Pending | null) {
   if (!pending) return null;
 
   if (pending.kind === "deleteItem") {
-    return <p className="text-sm text-gray-600">This removes it from the menu for good. Past orders keep their record of it.</p>;
+    return (
+      <p className="text-sm text-gray-600">
+        This removes it from the menu for good. If it has ever been ordered, the server will refuse — hide it instead.
+      </p>
+    );
   }
 
   if (pending.kind === "deleteCategory") {
