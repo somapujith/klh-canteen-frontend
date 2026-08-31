@@ -44,6 +44,8 @@ const existingItem: MenuItem = {
   categoryId: "cat-1",
   isAvailable: true,
   sortOrder: 0,
+  servingInfo: null,
+  servingInfoVisible: false,
 };
 
 function renderModal(editing: MenuItem | null, onSaved = vi.fn()) {
@@ -104,7 +106,15 @@ describe("MenuItemFormModal photo upload", () => {
     // imageless and the picture arrives separately.
     expect(apiClient.post).toHaveBeenCalledWith(
       "/admin/menu-items",
-      { name: "Vada Pav", price: "25", stockQty: 30, categoryId: "cat-1" },
+      {
+        name: "Vada Pav",
+        price: "25",
+        stockQty: 30,
+        categoryId: "cat-1",
+        servingInfo: null,
+        servingInfoVisible: false,
+        sortOrder: 0,
+      },
       "admin-token"
     );
     expect((apiClient.post as any).mock.calls[0][1]).not.toHaveProperty("imageUrl");

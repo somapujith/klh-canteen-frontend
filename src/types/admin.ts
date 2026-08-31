@@ -128,6 +128,10 @@ export interface MenuItem {
   isAvailable: boolean;
   /** Position within its category, ascending — mirrors Category.sortOrder. */
   sortOrder: number;
+  /** Free text the admin types themselves, e.g. "500g" or "6 pcs" — not a tracked number. */
+  servingInfo: string | null;
+  /** Whether servingInfo shows on the customer-facing menu. */
+  servingInfoVisible: boolean;
 }
 
 export interface Category {

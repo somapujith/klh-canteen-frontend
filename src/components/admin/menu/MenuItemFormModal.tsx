@@ -12,6 +12,8 @@ interface FormState {
   price: string;
   stockQty: string;
   categoryId: string;
+  servingInfo: string;
+  servingInfoVisible: boolean;
 }
 
 /** A file the admin has picked, already resized and compressed, waiting on save. */
@@ -52,6 +54,8 @@ export function MenuItemFormModal({ editing, categories, defaultCategoryId, toke
     price: editing?.price ?? "",
     stockQty: editing ? String(editing.stockQty) : "",
     categoryId: editing?.categoryId ?? defaultCategoryId ?? categories[0]?.id ?? "",
+    servingInfo: editing?.servingInfo ?? "",
+    servingInfoVisible: editing?.servingInfoVisible ?? false,
   }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +168,8 @@ export function MenuItemFormModal({ editing, categories, defaultCategoryId, toke
         price: form.price.trim(),
         stockQty: Number(form.stockQty || 0),
         categoryId: form.categoryId,
+        servingInfo: form.servingInfo.trim() || null,
+        servingInfoVisible: form.servingInfoVisible,
       };
 
       // Step 1 — the text fields. An image can only be addressed by item id, so
@@ -406,6 +412,45 @@ export function MenuItemFormModal({ editing, categories, defaultCategoryId, toke
               ))}
             </select>
           </Field>
+
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-500">Serving info</span>
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <span className="text-[0.7rem] font-bold text-gray-500">
+                  {form.servingInfoVisible ? "Shown to students" : "Hidden from students"}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={form.servingInfoVisible}
+                  aria-label="Show serving info on the student menu"
+                  onClick={() => set({ servingInfoVisible: !form.servingInfoVisible })}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                    form.servingInfoVisible ? "bg-emerald-500" : "bg-gray-300"
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[left] ${
+                      form.servingInfoVisible ? "left-[1.375rem]" : "left-0.5"
+                    }`}
+                  />
+                </button>
+              </label>
+            </div>
+            <input
+              value={form.servingInfo}
+              placeholder="e.g. 500g or 6 pcs"
+              maxLength={80}
+              onChange={(e) =>
+                set({ servingInfo: e.target.value.replace(/[^a-zA-Z0-9 .,/-]/g, "") })
+              }
+              className={INPUT_CLASS}
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Free text you write yourself — not tracked as stock. The toggle controls whether it appears on the menu.
+            </p>
+          </div>
 
           {error && (
             <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">

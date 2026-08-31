@@ -14,6 +14,8 @@ export interface MenuItemSummary {
   stockQty: number;
   isAvailable?: boolean;
   categoryId?: string;
+  /** Free text like "500g" or "6 pcs". Only present when the admin has made it visible. */
+  servingInfo?: string | null;
 }
 
 /** The two image fields every menu-item-shaped object carries, and nothing else. */

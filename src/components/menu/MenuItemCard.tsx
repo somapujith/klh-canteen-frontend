@@ -99,6 +99,7 @@ export function MenuItemCard({
           <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{categoryName}</p>
         )}
         <h3 className="font-semibold text-gray-800 text-sm leading-tight line-clamp-2">{item.name}</h3>
+        {item.servingInfo && <p className="text-xs text-gray-400">{item.servingInfo}</p>}
         <div className="flex items-center justify-between gap-2 mt-auto">
           <p className="text-brand-600 font-bold">₹{item.price}</p>
           <StockLine stockQty={item.stockQty} />

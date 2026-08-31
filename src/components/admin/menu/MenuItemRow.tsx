@@ -200,7 +200,15 @@ export function MenuItemRow({
           </span>
         )}
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-gray-900">{item.name}</p>
+          <p className="truncate text-sm font-semibold text-gray-900">
+            {item.name}
+            {item.servingInfo && (
+              <span className="ml-1.5 font-normal text-gray-400">
+                · {item.servingInfo}
+                {!item.servingInfoVisible && " (hidden)"}
+              </span>
+            )}
+          </p>
           {/* Compact trades the chip for a bare dot beside the name: the status
               still reads at a glance, without the line of text that is what
               actually makes the row tall. */}
