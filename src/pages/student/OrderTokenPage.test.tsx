@@ -32,7 +32,28 @@ vi.mock("../../hooks/useSSE", () => ({
   SSE_SUPPORTED: true,
 }));
 
+/**
+ * jsdom ships no matchMedia, and TokenReel reads it whenever the number is
+ * shown, to honour prefers-reduced-motion.
+ *
+ * This used to be declared inside the one test that clicked "Show token",
+ * because that was the only place the digits appeared. A collected ticket now
+ * shows its number without a click — the reveal control is gone by then — so
+ * any test whose order is DELIVERED mounts the reel too, and the stub has to
+ * cover the whole file.
+ */
 beforeEach(() => {
+  vi.stubGlobal("matchMedia", (media: string) => ({
+    media,
+    matches: false,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }));
+
   // Call counts are assertions here ("the delta moved the screen without a
   // refetch"), so they must not carry over between tests.
   (apiClient.get as any).mockClear();
@@ -138,19 +159,6 @@ it("refetches when the stream says local state can no longer be trusted", async 
  */
 it("hides the token again after it has been revealed", async () => {
   captured = null;
-  // jsdom ships no matchMedia, and TokenReel reads it on reveal to honour
-  // prefers-reduced-motion. No other test in this file reveals the number, so
-  // the stub is declared here rather than globally.
-  vi.stubGlobal("matchMedia", (media: string) => ({
-    media,
-    matches: false,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  }));
   (apiClient.get as any).mockResolvedValue(pendingOrder);
 
   renderTokenPage();
@@ -169,4 +177,41 @@ it("hides the token again after it has been revealed", async () => {
   // Back to the starting state, and re-revealable.
   expect(screen.getByRole("button", { name: /show token/i })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /hide token/i })).not.toBeInTheDocument();
+});
+
+/**
+ * Collection is the point of the whole screen, and the moment the ticket has
+ * to change character: green, no reveal control, and a header that stops
+ * asking the student to do anything.
+ *
+ * The green itself is what counter staff read across a queue — a handed-over
+ * order must not look like a waiting one when the same screen is presented a
+ * second time.
+ */
+it("turns the ticket green and drops the reveal control once collected", async () => {
+  captured = null;
+  (apiClient.get as any).mockResolvedValue(pendingOrder);
+
+  renderTokenPage();
+
+  // While it is still waiting, the number is hidden behind the reveal.
+  expect(await screen.findByRole("button", { name: /show token/i })).toBeInTheDocument();
+
+  act(() => {
+    captured!.options.onDelta!(
+      { kind: "ORDER_STATUS", orderId: "order-1", status: "DELIVERED" },
+      { type: "ORDER_UPDATE", raw: {} },
+    );
+  });
+
+  await waitFor(() => expect(screen.getByTestId("order-status")).toHaveTextContent(/collected/i));
+
+  // Neither control survives collection: there is nothing left to protect, and
+  // offering to reveal again invites the second showing this guards against.
+  expect(screen.queryByRole("button", { name: /show token/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /hide token/i })).not.toBeInTheDocument();
+
+  // The number is readable without a click, rather than stranded behind a
+  // reveal button that no longer exists.
+  expect(screen.getByText(/token number 1 2 3 4/i)).toBeInTheDocument();
 });

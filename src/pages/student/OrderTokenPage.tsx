@@ -7,6 +7,7 @@ import { TokenReel } from "../../components/TokenReel";
 import { formatOrderNumber } from "../../lib/orderNumber";
 import { useSSE, type OrderStatusDelta } from "../../hooks/useSSE";
 import { statusPresentation } from "../../lib/orderStatus";
+import { LiveClock } from "../../components/LiveClock";
 
 interface OrderDetail {
   id: string;
@@ -106,6 +107,8 @@ export function OrderTokenPage() {
   if (orders.length === 0) return <TokenPageSkeleton />;
 
   const multiple = orders.length > 1;
+  // Every ticket handed over — the page has nothing left to ask of the student.
+  const allCollected = orders.every((order) => order.status === "DELIVERED");
 
   return (
     <div className="min-h-screen bg-surface-muted fade-in">
@@ -113,12 +116,20 @@ export function OrderTokenPage() {
       <div className="mx-auto w-full max-w-sm px-4 pb-16 pt-6 sm:max-w-md">
         <header className="text-center">
           <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            {multiple ? `${orders.length} tokens for your order` : "Order placed"}
+            {allCollected
+              ? multiple
+                ? "All collected"
+                : "Collected"
+              : multiple
+                ? `${orders.length} tokens for your order`
+                : "Order placed"}
           </h1>
           <p className="mx-auto mt-1.5 max-w-[19rem] text-sm leading-relaxed text-gray-500">
-            {multiple
-              ? "Each counter has its own number. Reveal the matching one when you collect."
-              : "Reveal your number at the counter to collect."}
+            {allCollected
+              ? "Enjoy your food."
+              : multiple
+                ? "Each counter has its own number. Reveal the matching one when you collect."
+                : "Reveal your number at the counter to collect."}
           </p>
         </header>
 
@@ -139,16 +150,39 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
   // shows one number at a time.
   const [revealed, setRevealed] = useState(false);
 
+  /**
+   * Collected turns the whole ticket green.
+   *
+   * The point is the counter's glance, not the student's: a handed-over order
+   * must look different from a waiting one across a queue, so re-presenting
+   * the same live screen reads as already-done rather than as a fresh ticket.
+   *
+   * It does NOT defeat a screenshot taken before collection — that image stays
+   * white forever. The LiveClock below is what catches that case.
+   */
+  const collected = order.status === "DELIVERED";
+
+  // A collected ticket shows its number unconditionally: the reveal control is
+  // gone by then, so gating on `revealed` would leave it blurred with no way
+  // to unblur it. There is nothing left to protect — the order is handed over.
+  const showNumber = revealed || collected;
+
   return (
     <article
       aria-label={total > 1 ? `Ticket ${index + 1} of ${total}, ${kitchen}` : `${kitchen} ticket`}
-      className="relative rounded-3xl bg-surface flat-shadow flat-shadow-hover rise-in"
+      className={`relative rounded-3xl flat-shadow flat-shadow-hover rise-in transition-colors duration-500 ${
+        collected ? "bg-success-50 ring-2 ring-success-500" : "bg-surface"
+      }`}
       style={{ animationDelay: `${index * 70}ms` }}
     >
       {/* Kitchen band — names the counter this token is valid at. */}
-      <div className="flex items-center justify-between gap-3 rounded-t-3xl bg-brand-700 px-5 py-3 text-white">
+      <div
+        className={`flex items-center justify-between gap-3 rounded-t-3xl px-5 py-3 text-white transition-colors duration-500 ${
+          collected ? "bg-success-600" : "bg-brand-700"
+        }`}
+      >
         <h2 className="truncate text-[0.7rem] font-bold uppercase tracking-[0.22em]">
-          {order.kitchen} Token
+          {collected ? "Collected" : `${order.kitchen} Token`}
         </h2>
         {total > 1 && (
           <span className="shrink-0 rounded-full bg-white/20 px-2.5 py-0.5 text-[0.65rem] font-bold tabular-nums tracking-widest">
@@ -168,32 +202,43 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
               student would read it out — instead of "forty-two". Announced on
               reveal rather than sitting in the accessibility tree from the
               start, so the number is hidden for everyone until it is asked for. */}
-          {revealed ? (
+          {showNumber ? (
             <span className="sr-only" aria-live="polite">
-              Token number {digits.split("").join(" ")}. Use the hide token button to hide it again.
+              Token number {digits.split("").join(" ")}.
+              {collected ? " This order has been collected." : " Use the hide token button to hide it again."}
             </span>
           ) : (
             <span className="sr-only">Token number hidden. Use the show token button to reveal it.</span>
           )}
 
-          <span aria-hidden="true" className="flex items-start justify-center text-brand-900">
+          <span
+            aria-hidden="true"
+            className={`flex items-start justify-center transition-colors duration-500 ${
+              collected ? "text-success-700" : "text-brand-900"
+            }`}
+          >
             {/* The hash belongs to the number, so it hides with it. */}
             <span
-              className="mt-2 text-2xl font-bold text-brand-300 sm:mt-3 sm:text-3xl"
-              style={revealed ? undefined : { filter: "blur(var(--reel-hide-blur))" }}
+              className={`mt-2 text-2xl font-bold sm:mt-3 sm:text-3xl ${
+                collected ? "text-success-400" : "text-brand-300"
+              }`}
+              style={showNumber ? undefined : { filter: "blur(var(--reel-hide-blur))" }}
             >
               #
             </span>
             <TokenReel
               digits={digits}
-              revealed={revealed}
+              revealed={showNumber}
               className="-my-[0.15em] text-[4.75rem] font-black leading-none tracking-tight sm:text-8xl"
             />
           </span>
 
           {/* Sits over the blurred number rather than under it: revealing must
-              not reflow the ticket the student is already looking at. */}
-          {!revealed && (
+              not reflow the ticket the student is already looking at.
+              Suppressed once collected — the number has done its job, and
+              offering to reveal it again invites exactly the second showing
+              this change is meant to discourage. */}
+          {!revealed && !collected && (
             <button
               type="button"
               onClick={() => setRevealed(true)}
@@ -209,8 +254,23 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
           <StatusPill status={order.status} />
         </div>
 
+        {/* The liveness cue. Present on every ticket, not just collected ones:
+            the fraud it catches is a screenshot taken BEFORE collection, so the
+            clock has to be running on the screen staff check at handover. */}
+        <p
+          className={`mt-3 text-xs font-bold ${collected ? "text-success-700" : "text-gray-400"}`}
+          aria-hidden="true"
+        >
+          <LiveClock />
+        </p>
+
         <p className="mx-auto mt-4 max-w-[17rem] text-sm leading-relaxed text-gray-500">
-          {revealed ? (
+          {collected ? (
+            <>
+              Collected from the <span className="font-semibold text-gray-700">{kitchen}</span> counter.
+              Nothing left to do.
+            </>
+          ) : revealed ? (
             <>
               Show or read out this number at the{" "}
               <span className="font-semibold text-gray-700">{kitchen}</span> counter.
@@ -228,7 +288,7 @@ function OrderTicket({ order, index, total }: { order: OrderDetail; index: numbe
             the very digits the student is holding up to the counter. It sits
             below the copy instead, quiet enough not to compete with the number
             and reachable once the handover is done. */}
-        {revealed && (
+        {revealed && !collected && (
           <button
             type="button"
             onClick={() => setRevealed(false)}

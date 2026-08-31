@@ -2,6 +2,7 @@ import type { GuestOrder } from "../lib/guestSession";
 import { formatWindowTime } from "../lib/collectionWindows";
 import { formatOrderNumber } from "../lib/orderNumber";
 import { statusPresentation } from "../lib/orderStatus";
+import { LiveClock } from "./LiveClock";
 import { Badge } from "./ui";
 
 /**
@@ -98,10 +99,16 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
     <article className="bg-surface rounded-2xl flat-shadow border border-border overflow-hidden rise-in">
       {/* ---- Token hero ------------------------------------------------ */}
       <div
+        /* Collected is green, not the grey it used to share with CANCELLED —
+           a handed-over order and a dead one are opposite outcomes and must
+           not look alike across a counter. The ring makes it carry at a
+           glance, so re-presenting a collected ticket reads as already-done. */
         className={`px-5 pt-4 pb-5 border-b transition-colors duration-300 motion-reduce:transition-none ${
           isReady
             ? "bg-success-50 border-success-100"
-            : isDone || isTerminalBad
+            : isDone
+            ? "bg-success-100 border-success-300"
+            : isTerminalBad
             ? "bg-surface-muted border-border"
             : "bg-warning-50 border-warning-100"
         }`}
@@ -123,11 +130,11 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
 
         <p
           className={`mt-1 font-black tabular-nums tracking-tight leading-[0.95] text-6xl sm:text-7xl ${
-            isDone || isTerminalBad ? "text-gray-500" : "text-gray-900"
+            isDone ? "text-success-700" : isTerminalBad ? "text-gray-500" : "text-gray-900"
           }`}
           aria-hidden="true"
         >
-          <span className="text-gray-500">#</span>
+          <span className={isDone ? "text-success-400" : "text-gray-500"}>#</span>
           {token}
         </p>
         <span className="sr-only">
@@ -144,6 +151,19 @@ export function GuestOrderCard({ order }: { order: GuestOrder }) {
             {isDone ? `Handed over at the ${counter}` : `Show this number at the ${counter}`}
           </span>
         </p>
+
+        {/* Liveness cue — see components/LiveClock. A screenshot of this card
+            freezes the clock, which is the only tell that separates a real
+            screen from a picture of one. Hidden on a cancelled order: there is
+            nothing to present at a counter. */}
+        {!isTerminalBad && (
+          <p
+            className={`mt-2 text-xs font-bold ${isDone ? "text-success-700" : "text-gray-500"}`}
+            aria-hidden="true"
+          >
+            <LiveClock />
+          </p>
+        )}
       </div>
 
       {/* ---- Progress + contents --------------------------------------- */}
