@@ -79,63 +79,72 @@ export function MenuToolbar({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <SearchInput
           value={query}
           onChange={onQueryChange}
           label="Search menu items"
           placeholder="Search items or categories…"
           inputMode="search"
-          className="w-full sm:max-w-xs"
+          className="w-full lg:w-64 lg:shrink-0"
         />
 
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter items">
-          {chips.map((chip) => {
-            const active = filter === chip.key;
-            return (
-              <button
-                key={chip.key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onFilterChange(chip.key)}
-                className={`h-9 rounded-full px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-                  active
-                    ? "bg-gray-900 text-white"
-                    : `bg-surface ring-1 ring-gray-200 hover:bg-surface-hover ${chip.tone}`
-                }`}
-              >
-                {chip.label}
-                <span className={`ml-1.5 tabular-nums ${active ? "text-white/70" : "text-gray-400"}`}>
-                  {chip.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <div className="flex flex-1 flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter items">
+            {chips.map((chip) => {
+              const active = filter === chip.key;
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onFilterChange(chip.key)}
+                  className={`inline-flex h-9 items-center rounded-full px-3.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                    active
+                      ? "bg-gray-900 text-white"
+                      : `bg-surface ring-1 ring-gray-200 hover:bg-surface-hover ${chip.tone}`
+                  }`}
+                >
+                  {chip.label}
+                  <span
+                    className={`ml-1.5 min-w-5 rounded-full px-1 text-center tabular-nums ${
+                      active ? "text-white/70" : "text-gray-400"
+                    }`}
+                  >
+                    {chip.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-        {/* View controls sit apart from the filters: these change how the list
-            is drawn, not which items are in it. */}
-        <div className="flex gap-1.5 sm:ml-auto">
-          <button
-            type="button"
-            onClick={onToggleAllCollapsed}
-            className="h-9 rounded-full bg-surface px-3 text-xs font-bold text-gray-600 ring-1 ring-gray-200 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-          >
-            {allCollapsed ? "Expand all" : "Collapse all"}
-          </button>
-          <button
-            type="button"
-            aria-pressed={compact}
-            onClick={() => onDensityChange(compact ? "comfortable" : "compact")}
-            title={compact ? "Switch to comfortable rows" : "Switch to compact rows"}
-            className={`h-9 rounded-full px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-              compact
-                ? "bg-gray-900 text-white"
-                : "bg-surface text-gray-600 ring-1 ring-gray-200 hover:bg-surface-hover"
-            }`}
-          >
-            Compact
-          </button>
+          {/* View controls sit apart from the filters: these change how the list
+              is drawn, not which items are in it. The divider makes that split
+              legible instead of reading as one undifferentiated row of pills. */}
+          <div className="ml-auto hidden h-6 w-px bg-gray-200 lg:block" aria-hidden="true" />
+
+          <div className="flex gap-1.5 max-lg:ml-auto" role="group" aria-label="View options">
+            <button
+              type="button"
+              onClick={onToggleAllCollapsed}
+              className="inline-flex h-9 items-center rounded-full bg-surface px-3.5 text-xs font-bold text-gray-600 ring-1 ring-gray-200 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              {allCollapsed ? "Expand all" : "Collapse all"}
+            </button>
+            <button
+              type="button"
+              aria-pressed={compact}
+              onClick={() => onDensityChange(compact ? "comfortable" : "compact")}
+              title={compact ? "Switch to comfortable rows" : "Switch to compact rows"}
+              className={`inline-flex h-9 items-center rounded-full px-3.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+                compact
+                  ? "bg-gray-900 text-white"
+                  : "bg-surface text-gray-600 ring-1 ring-gray-200 hover:bg-surface-hover"
+              }`}
+            >
+              Compact
+            </button>
+          </div>
         </div>
       </div>
     </div>
