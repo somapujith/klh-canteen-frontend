@@ -1,9 +1,12 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { guestApi } from "../../lib/guestSession";
+import { ensureGuestSession, guestApi } from "../../lib/guestSession";
 import { orderErrorMessage } from "../../lib/collectionWindows";
 import { GuestNav } from "../../components/GuestNav";
+import { PaymentSheet } from "../../components/PaymentSheet";
 import { Button, EmptyState, Stepper } from "../../components/ui";
+import { isPaymentsEnabled } from "../../lib/appConfig";
+import { startPayment, type PaymentSession } from "../../lib/payments";
 import { useGuestCart, type GuestCartLine } from "../../hooks/useGuestCart";
 import { useToast } from "../../context/ToastContext";
 import type { Kitchen } from "../../types/admin";
@@ -150,6 +153,24 @@ export function GuestCheckoutPage() {
   const listRef = useRef<HTMLUListElement>(null);
   const payRef = useRef<HTMLButtonElement>(null);
 
+  // Same shape as the student checkout — see the comments there for why the
+  // order is written before the payment opens, and why the cart survives a
+  // failed one.
+  const [payment, setPayment] = useState<PaymentSession | null>(null);
+  const [pendingOrderIds, setPendingOrderIds] = useState<string[]>([]);
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    isPaymentsEnabled().then((on) => {
+      if (!cancelled) setPaymentsOn(on);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const itemCount = useMemo(() => items.reduce((sum, line) => sum + line.qty, 0), [items]);
 
   /**
@@ -164,6 +185,14 @@ export function GuestCheckoutPage() {
     return [...seen];
   }, [items]);
 
+  const goToTokens = useCallback(
+    (orderIds: string[]) => {
+      clear();
+      navigate(`/g/order/${orderIds.join(",")}`, { replace: true });
+    },
+    [clear, navigate],
+  );
+
   async function handlePay() {
     setPlacing(true);
     setError(null);
@@ -173,15 +202,45 @@ export function GuestCheckoutPage() {
         ...(guestName.trim() ? { guestName: guestName.trim() } : {}),
         ...(guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}),
       });
-      clear();
-      showToast("Order placed! Show your token at the counter.", "success");
-      navigate(`/g/order/${orders.map((o) => o.id).join(",")}`, { replace: true });
+      const orderIds = orders.map((o) => o.id);
+
+      if (!paymentsOn) {
+        clear();
+        showToast("Order placed! Show your token at the counter.", "success");
+        navigate(`/g/order/${orderIds.join(",")}`, { replace: true });
+        return;
+      }
+
+      // The payment endpoints authenticate a guest by the same signed session
+      // token the order was placed under, so it is read here rather than
+      // assumed — placeOrder has already ensured one exists.
+      const sessionToken = await ensureGuestSession();
+      setGuestToken(sessionToken);
+      setPendingOrderIds(orderIds);
+      const session = await startPayment(orderIds, { guestSession: sessionToken });
+      setPayment(session);
     } catch (err) {
-      setError(orderErrorMessage(err, "Could not place your order"));
+      setError(orderErrorMessage(err, "Could not start your payment"));
+      setPendingOrderIds([]);
     } finally {
       setPlacing(false);
     }
   }
+
+  const handlePaid = useCallback(() => {
+    showToast("Payment received — show your token at the counter.", "success");
+    const ids = pendingOrderIds;
+    setTimeout(() => goToTokens(ids), 1200);
+  }, [goToTokens, pendingOrderIds, showToast]);
+
+  const handleFailed = useCallback((_state: unknown, reason: string) => {
+    setError(reason);
+  }, []);
+
+  const handleDismiss = useCallback(() => {
+    setPayment(null);
+    setPendingOrderIds([]);
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -335,10 +394,20 @@ export function GuestCheckoutPage() {
             <p className="text-lg font-bold text-gray-900 tabular-nums">₹{total.toFixed(2)}</p>
           </div>
           <Button ref={payRef} onClick={handlePay} loading={placing} size="lg" className="flex-1">
-            {placing ? "Processing" : "Pay now"}
+            {placing ? "Processing" : paymentsOn ? "Pay by UPI" : "Place order"}
           </Button>
         </div>
       </div>
+
+      {payment && guestToken && (
+        <PaymentSheet
+          session={payment}
+          auth={{ guestSession: guestToken }}
+          onPaid={handlePaid}
+          onFailed={handleFailed}
+          onDismiss={handleDismiss}
+        />
+      )}
     </div>
   );
 }
