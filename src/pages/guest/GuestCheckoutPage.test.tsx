@@ -103,7 +103,7 @@ it("keeps the guest network contract: items plus optional name, trimmed", async 
   await renderWithCart([samosa]);
 
   fireEvent.change(screen.getByLabelText("Name"), { target: { value: "  Ravi  " } });
-  fireEvent.click(screen.getByRole("button", { name: /pay now/i }));
+  fireEvent.click(screen.getByRole("button", { name: /place order|pay by upi/i }));
 
   await waitFor(() => expect(guestApi.placeOrder).toHaveBeenCalled());
   // Blank phone is omitted from the payload entirely rather than sent as "".
@@ -119,7 +119,7 @@ it("joins the ids when the backend splits the cart across counters", async () =>
   (guestApi.placeOrder as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: "o1" }, { id: "o2" }]);
   await renderWithCart([samosa, thali]);
 
-  fireEvent.click(screen.getByRole("button", { name: /pay now/i }));
+  fireEvent.click(screen.getByRole("button", { name: /place order|pay by upi/i }));
 
   await waitFor(() => expect(navigate).toHaveBeenCalledWith("/g/order/o1,o2", { replace: true }));
 });
@@ -128,7 +128,7 @@ it("presents a failure in an alert card and leaves the cart intact", async () =>
   (guestApi.placeOrder as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("counter closed"));
   await renderWithCart([samosa]);
 
-  fireEvent.click(screen.getByRole("button", { name: /pay now/i }));
+  fireEvent.click(screen.getByRole("button", { name: /place order|pay by upi/i }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("counter closed");
   expect(screen.getByText("Samosa")).toBeInTheDocument();

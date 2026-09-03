@@ -44,7 +44,7 @@ it("shows the school picker before any login form", () => {
 
   expect(screen.getByRole("button", { name: /klh university/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /drk institution/i })).toBeInTheDocument();
-  expect(screen.queryByLabelText(/email or roll number/i)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
 });
 
 /* The demo panel used to render for KLH only, which gave DRK a visibly shorter
@@ -58,19 +58,14 @@ it("offers the seeded KLH accounts in the demo quick-fill panel", () => {
 
   expect(screen.getByText(/quick fill/i)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /student account/i }));
-  expect(screen.getByLabelText(/email or roll number/i)).toHaveValue("student@klh.edu.in");
+  expect(screen.getByLabelText(/username/i)).toHaveValue("student@klh.edu.in");
   expect(screen.getByLabelText("Password")).toHaveValue("student123");
 });
 
-it("offers the seeded DRK admin accounts in the demo quick-fill panel", () => {
-  renderLogin();
-  fireEvent.click(screen.getByRole("button", { name: /drk institution/i }));
-
-  expect(screen.getByText(/quick fill/i)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /^admin account$/i }));
-  expect(screen.getByLabelText(/email or roll number/i)).toHaveValue("admin@drk.edu.in");
-  expect(screen.getByLabelText("Password")).toHaveValue("changeme123");
-});
+/* Removed: "offers the seeded DRK admin accounts in the demo quick-fill panel".
+   DRK is Google-only — it has no password login for the panel to fill in — so
+   the quick-fill affordance is KLH-only by design. See the comment above
+   KLH_DEMO_ACCOUNTS in LoginPage.tsx. The KLH panel is still covered above. */
 
 /* DRK seeds admins but no demo student, so the panel must not offer one. This
    is the assertion that fails if someone pastes the KLH student row into the
@@ -113,7 +108,7 @@ it("lands an admin on the order board rather than the dashboard", async () => {
 
   renderLogin();
   pickKlh();
-  fireEvent.change(screen.getByLabelText(/email or roll number/i), { target: { value: "admin@klh.edu.in" } });
+  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: "admin@klh.edu.in" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw" } });
   fireEvent.click(screen.getByRole("button", { name: /log in/i }));
 
@@ -125,13 +120,15 @@ it("passes the picked school through to the login request", async () => {
   (apiClient.post as any).mockResolvedValue({ token: "t", role: "STUDENT", name: "A", id: "u1" });
 
   renderLogin();
-  fireEvent.click(screen.getByRole("button", { name: /drk institution/i }));
-  fireEvent.change(screen.getByLabelText(/email or roll number/i), { target: { value: "someone@drk.edu.in" } });
+  // Asserted through KLH rather than DRK: DRK is Google-only and has no
+  // password form to submit, so the school field can only be exercised here.
+  pickKlh();
+  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: "someone@klh.edu.in" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw" } });
   fireEvent.click(screen.getByRole("button", { name: /log in/i }));
 
   await waitFor(() =>
-    expect(apiClient.post).toHaveBeenCalledWith("/auth/login", { identifier: "someone@drk.edu.in", password: "pw", school: "DRK" })
+    expect(apiClient.post).toHaveBeenCalledWith("/auth/login", { identifier: "someone@klh.edu.in", password: "pw", school: "KLH" })
   );
 });
 
@@ -143,7 +140,7 @@ it("drops the notice once the user logs back in", async () => {
   pickKlh();
   expect(screen.getByText(/session expired/i)).toBeInTheDocument();
 
-  fireEvent.change(screen.getByLabelText(/email or roll number/i), { target: { value: "a@klh.edu.in" } });
+  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: "a@klh.edu.in" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw" } });
   fireEvent.click(screen.getByRole("button", { name: /log in/i }));
 
@@ -161,16 +158,23 @@ it("clears the stale error and credentials when switching schools", async () => 
 
   renderLogin();
   pickKlh();
-  fireEvent.change(screen.getByLabelText(/email or roll number/i), { target: { value: "wrong@klh.edu.in" } });
+  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: "wrong@klh.edu.in" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "bad" } });
   fireEvent.click(screen.getByRole("button", { name: /log in/i }));
   await waitFor(() => expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument());
 
   fireEvent.click(screen.getByRole("button", { name: /change school/i }));
-  fireEvent.click(screen.getByRole("button", { name: /drk institution/i }));
-
+  // The error must already be gone at the picker, before any school is chosen
+  // — that is the state a user actually sees after tapping "change school".
   expect(screen.queryByText(/invalid credentials/i)).not.toBeInTheDocument();
-  expect(screen.getByLabelText(/email or roll number/i)).toHaveValue("");
+
+  // Back into KLH rather than on to DRK: DRK is Google-only and renders no
+  // username/password form, so the fields can only be re-read here. Coming
+  // back to the same school is also the stricter check — the form is rebuilt
+  // from state rather than simply unmounted.
+  pickKlh();
+  expect(screen.queryByText(/invalid credentials/i)).not.toBeInTheDocument();
+  expect(screen.getByLabelText(/username/i)).toHaveValue("");
   expect(screen.getByLabelText("Password")).toHaveValue("");
 });
 
@@ -186,7 +190,7 @@ it("submits credentials and shows an error on failed login", async () => {
   );
   pickKlh();
 
-  fireEvent.change(screen.getByLabelText(/email or roll number/i), { target: { value: "wrong@klh.edu.in" } });
+  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: "wrong@klh.edu.in" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "bad" } });
   fireEvent.click(screen.getByRole("button", { name: /log in/i }));
 
@@ -229,20 +233,20 @@ it("blocks submit with inline field errors instead of calling the API", () => {
   pickKlh();
   fireEvent.click(screen.getByRole("button", { name: /log in/i }));
 
-  expect(screen.getByText(/enter your email or roll number/i)).toBeInTheDocument();
+  expect(screen.getByText(/enter your username/i)).toBeInTheDocument();
   expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
   expect(apiClient.post).not.toHaveBeenCalled();
   // Focus lands on the first offending field so the user can just type.
-  expect(screen.getByLabelText(/email or roll number/i)).toHaveFocus();
+  expect(screen.getByLabelText(/username/i)).toHaveFocus();
 });
 
 it("flags only the missing password when the identifier is filled", () => {
   renderLogin();
   pickKlh();
-  fireEvent.change(screen.getByLabelText(/email or roll number/i), { target: { value: "a@klh.edu.in" } });
+  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: "a@klh.edu.in" } });
   fireEvent.click(screen.getByRole("button", { name: /log in/i }));
 
-  expect(screen.queryByText(/enter your email or roll number/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/enter your username/i)).not.toBeInTheDocument();
   expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
   expect(screen.getByLabelText("Password")).toHaveFocus();
   expect(apiClient.post).not.toHaveBeenCalled();
