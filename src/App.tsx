@@ -9,6 +9,7 @@ import { NetworkStatus } from "./components/NetworkStatus";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const LoginPage = lazyRoute(() => import("./pages/LoginPage").then(module => ({ default: module.LoginPage })));
+const PaymentCompletePage = lazyRoute(() => import("./pages/PaymentCompletePage").then(module => ({ default: module.PaymentCompletePage })));
 const StudentMenuPage = lazyRoute(() => import("./pages/student/StudentMenuPage").then(module => ({ default: module.StudentMenuPage })));
 const CheckoutPage = lazyRoute(() => import("./pages/student/CheckoutPage").then(module => ({ default: module.CheckoutPage })));
 const OrderTokenPage = lazyRoute(() => import("./pages/student/OrderTokenPage").then(module => ({ default: module.OrderTokenPage })));
@@ -56,6 +57,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoleRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          {/* Where SafeUPI returns the browser after its hosted payment page.
+              Deliberately outside every auth guard: a student and a walk-up
+              guest both land here, and the page resolves its own credentials.
+              A guard here would bounce a paying customer to the login screen at
+              the exact moment their money had just left their account. */}
+          <Route path="/payment/complete" element={<PaymentCompletePage />} />
           {/* QR-targetable entry points — same LoginPage, pre-selects the
               school and skips SchoolSelect. See schoolFromParam() there. */}
           <Route path="/login/:school" element={<LoginPage />} />

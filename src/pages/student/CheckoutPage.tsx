@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../lib/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import { useCart, type CartLine } from "../../context/CartContext";
 import { useToast } from "../../context/ToastContext";
 import { Navbar } from "../../components/Navbar";
-import { PaymentSheet } from "../../components/PaymentSheet";
 import { Button, EmptyState, Stepper } from "../../components/ui";
 import { orderErrorMessage } from "../../lib/collectionWindows";
 import { isPaymentsEnabled } from "../../lib/appConfig";
-import { startPayment, type PaymentSession } from "../../lib/payments";
+import { rememberPendingOrders, startPayment } from "../../lib/payments";
 import type { Kitchen } from "../../types/admin";
 
 interface OrderResponse {
@@ -159,17 +158,6 @@ export function CheckoutPage() {
   const listRef = useRef<HTMLUListElement>(null);
   const payRef = useRef<HTMLButtonElement>(null);
 
-  /**
-   * The live payment, once one is open. Its presence is what renders the
-   * sheet, so clearing it is how every exit path closes it.
-   */
-  const [payment, setPayment] = useState<PaymentSession | null>(null);
-  /**
-   * Orders placed and awaiting payment. Held so a dismissed or failed payment
-   * can name them, and so the paid path can navigate to their tokens without
-   * re-reading anything.
-   */
-  const [pendingOrderIds, setPendingOrderIds] = useState<string[]>([]);
   const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null);
 
   // Asked once on mount so the pay button's label is correct before it is
@@ -198,24 +186,18 @@ export function CheckoutPage() {
     return [...seen];
   }, [items]);
 
-  /** Where a settled or abandoned payment sends the student. */
-  const goToTokens = useCallback(
-    (orderIds: string[]) => {
-      clear();
-      navigate(`/student/order/${orderIds.join(",")}`, { replace: true });
-    },
-    [clear, navigate],
-  );
-
   /**
-   * Places the order, then pays for it.
+   * Places the order, then sends the student to SafeUPI to pay.
    *
    * Two steps rather than one, and in this order on purpose: the order is
    * written and its stock reserved BEFORE any money is involved, so a student
-   * can never be charged for food that sold out while they were paying. The
-   * cart is deliberately NOT cleared here — only a settled payment clears it,
-   * so a failed one leaves the student exactly where they were, with their
-   * cart intact and something to retry.
+   * can never be charged for food that sold out while they were paying.
+   *
+   * The cart is deliberately NOT cleared before leaving. If the student
+   * abandons SafeUPI's page or the payment fails, they come back to a checkout
+   * exactly as they left it, with something to retry. Only a confirmed payment
+   * clears it — and that happens on the completion page, after the server has
+   * verified the money with SafeUPI.
    */
   async function handlePay() {
     setPlacing(true);
@@ -236,45 +218,26 @@ export function CheckoutPage() {
         return;
       }
 
-      setPendingOrderIds(orderIds);
       const session = await startPayment(orderIds, { token: token ?? undefined });
-      setPayment(session);
+
+      // Remembered before navigating away, because this component is about to
+      // be torn down by a full page load and its state goes with it.
+      rememberPendingOrders(orderIds);
+
+      // A real navigation, not a router push: SafeUPI's page is another origin.
+      // `replace` keeps the checkout out of history, so the browser Back button
+      // from SafeUPI does not land on a stale cart that has already been ordered.
+      window.location.replace(session.paymentUrl);
     } catch (err) {
       // A checkout that failed after the orders were written leaves them
-      // awaiting payment; they release themselves when the window lapses, so
-      // there is nothing to clean up here beyond saying so.
+      // awaiting payment; the backend releases them, so the cart is still good.
       setError(orderErrorMessage(err, "Could not start your payment"));
-      setPendingOrderIds([]);
-    } finally {
       setPlacing(false);
     }
+    // No `finally`: on the success path this component is being replaced by a
+    // page load, and clearing `placing` there would flash the button back to
+    // its resting state while the browser is already navigating.
   }
-
-  const handlePaid = useCallback(() => {
-    showToast("Payment received — your order is confirmed!", "success");
-    // Briefly leaves the sheet's success state on screen, so the confirmation
-    // is seen rather than flashed past on the way to the token.
-    const ids = pendingOrderIds;
-    setTimeout(() => goToTokens(ids), 1200);
-  }, [goToTokens, pendingOrderIds, showToast]);
-
-  const handleFailed = useCallback((_state: unknown, reason: string) => {
-    // The sheet stays open showing its own failure state; this only records
-    // the reason so it survives the sheet closing.
-    setError(reason);
-  }, []);
-
-  /**
-   * Closes the sheet without a settled payment.
-   *
-   * The orders stay written and awaiting payment until their window lapses,
-   * at which point the backend cancels them and returns the stock. Nothing is
-   * cleared here, so the cart is still intact behind the sheet.
-   */
-  const handleDismiss = useCallback(() => {
-    setPayment(null);
-    setPendingOrderIds([]);
-  }, []);
 
   if (items.length === 0) {
     return (
@@ -401,16 +364,6 @@ export function CheckoutPage() {
           </Button>
         </div>
       </div>
-
-      {payment && (
-        <PaymentSheet
-          session={payment}
-          auth={{ token: token ?? undefined }}
-          onPaid={handlePaid}
-          onFailed={handleFailed}
-          onDismiss={handleDismiss}
-        />
-      )}
     </div>
   );
 }

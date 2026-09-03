@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ensureGuestSession, guestApi } from "../../lib/guestSession";
 import { orderErrorMessage } from "../../lib/collectionWindows";
 import { GuestNav } from "../../components/GuestNav";
-import { PaymentSheet } from "../../components/PaymentSheet";
 import { Button, EmptyState, Stepper } from "../../components/ui";
 import { isPaymentsEnabled } from "../../lib/appConfig";
-import { startPayment, type PaymentSession } from "../../lib/payments";
+import { rememberPendingOrders, startPayment } from "../../lib/payments";
 import { useGuestCart, type GuestCartLine } from "../../hooks/useGuestCart";
 import { useToast } from "../../context/ToastContext";
 import type { Kitchen } from "../../types/admin";
@@ -153,12 +152,6 @@ export function GuestCheckoutPage() {
   const listRef = useRef<HTMLUListElement>(null);
   const payRef = useRef<HTMLButtonElement>(null);
 
-  // Same shape as the student checkout — see the comments there for why the
-  // order is written before the payment opens, and why the cart survives a
-  // failed one.
-  const [payment, setPayment] = useState<PaymentSession | null>(null);
-  const [pendingOrderIds, setPendingOrderIds] = useState<string[]>([]);
-  const [guestToken, setGuestToken] = useState<string | null>(null);
   const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -185,14 +178,13 @@ export function GuestCheckoutPage() {
     return [...seen];
   }, [items]);
 
-  const goToTokens = useCallback(
-    (orderIds: string[]) => {
-      clear();
-      navigate(`/g/order/${orderIds.join(",")}`, { replace: true });
-    },
-    [clear, navigate],
-  );
-
+  /**
+   * Places the order, then sends the guest to SafeUPI to pay.
+   *
+   * Same shape and same reasoning as the student checkout: the order is written
+   * and its stock reserved before any money is involved, and the cart survives
+   * an abandoned or failed payment so there is something to retry.
+   */
   async function handlePay() {
     setPlacing(true);
     setError(null);
@@ -212,35 +204,18 @@ export function GuestCheckoutPage() {
       }
 
       // The payment endpoints authenticate a guest by the same signed session
-      // token the order was placed under, so it is read here rather than
-      // assumed — placeOrder has already ensured one exists.
+      // the order was placed under, so it is read here rather than assumed —
+      // placeOrder has already ensured one exists.
       const sessionToken = await ensureGuestSession();
-      setGuestToken(sessionToken);
-      setPendingOrderIds(orderIds);
       const session = await startPayment(orderIds, { guestSession: sessionToken });
-      setPayment(session);
+
+      rememberPendingOrders(orderIds);
+      window.location.replace(session.paymentUrl);
     } catch (err) {
       setError(orderErrorMessage(err, "Could not start your payment"));
-      setPendingOrderIds([]);
-    } finally {
       setPlacing(false);
     }
   }
-
-  const handlePaid = useCallback(() => {
-    showToast("Payment received — show your token at the counter.", "success");
-    const ids = pendingOrderIds;
-    setTimeout(() => goToTokens(ids), 1200);
-  }, [goToTokens, pendingOrderIds, showToast]);
-
-  const handleFailed = useCallback((_state: unknown, reason: string) => {
-    setError(reason);
-  }, []);
-
-  const handleDismiss = useCallback(() => {
-    setPayment(null);
-    setPendingOrderIds([]);
-  }, []);
 
   if (items.length === 0) {
     return (
@@ -398,16 +373,6 @@ export function GuestCheckoutPage() {
           </Button>
         </div>
       </div>
-
-      {payment && guestToken && (
-        <PaymentSheet
-          session={payment}
-          auth={{ guestSession: guestToken }}
-          onPaid={handlePaid}
-          onFailed={handleFailed}
-          onDismiss={handleDismiss}
-        />
-      )}
     </div>
   );
 }

@@ -1,14 +1,16 @@
 import { apiClient, ApiClientError } from "./apiClient";
 
 /**
- * UPI payment client.
+ * UPI payment client (SafeUPI, hosted checkout).
  *
- * Pairs with backend routes/payments.ts. The flow is: place the order as
- * normal (it is written and holding stock, but hidden from the kitchen), open
- * a payment for it, show the QR, then poll until the backend says the money
- * arrived. The backend is the only thing that decides whether a payment
- * succeeded — nothing here may conclude it from the UPI app's behaviour, since
- * a student returning to the tab proves nothing about whether they paid.
+ * Pairs with backend routes/payments.ts. The flow: place the order as normal
+ * (written, holding stock, hidden from the kitchen), open a payment for it,
+ * send the student to SafeUPI's hosted page, and confirm on their return.
+ *
+ * The backend is the only thing that decides whether a payment succeeded.
+ * Landing back on the redirect URL proves the student came back — not that
+ * they paid — so the completion page always asks the server, which in turn
+ * confirms against SafeUPI's own Status API before releasing anything.
  */
 
 export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "EXPIRED";
@@ -19,14 +21,16 @@ export interface PaymentSession {
   amount: string;
   currency: string;
   expiresAt: string;
-  /** data:image/png;base64,... — render directly in an <img src>. */
-  qrCode: string;
-  /** upi://pay?... — the same payload the QR encodes, for a tap-to-pay link. */
-  upiString: string;
-  /** Per-app deep links (bhim_link, phonepe_link, paytm_link, gpay_link). */
-  upiIntent: Record<string, string>;
-  merchantUpiId: string | null;
-  merchantName: string | null;
+  /**
+   * SafeUPI's hosted checkout page. Under the hosted flow this IS the payment
+   * UI — the student is sent here and comes back to the redirect URL.
+   */
+  paymentUrl: string;
+  /**
+   * Returned only for selected SafeUPI businesses, so usually null. Never
+   * depend on it; the hosted page renders its own QR regardless.
+   */
+  qrCode: string | null;
   orderIds: string[];
 }
 
@@ -40,8 +44,7 @@ export interface PaymentState {
   upiTxnId: string | null;
   payerVpa: string | null;
   failureReason: string | null;
-  qrCode?: string;
-  upiString?: string;
+  qrCode?: string | null;
 }
 
 /** Credentials for either caller: a signed-in student or a walk-up guest. */
@@ -83,9 +86,9 @@ export async function getPaymentState(
   });
 }
 
-/** How often to ask the backend whether the money arrived. Two seconds is
- *  frequent enough to feel immediate inside a two-minute window without
- *  spending the status endpoint's rate limit before the window closes. */
+/** How often to ask the backend whether the money arrived. Two seconds feels
+ *  immediate on the completion page without spending the status endpoint's
+ *  rate limit before the window closes. */
 const POLL_INTERVAL_MS = 2000;
 
 /** Consecutive network failures tolerated before giving up. A dropped request
@@ -168,12 +171,12 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * Seconds left before the QR stops being scannable, floored at zero.
+ * Seconds left before the payment window closes, floored at zero.
  *
  * Derived from the server's `expiresAt` rather than counted down from when the
- * component mounted: a backgrounded phone stops firing timers, and a countdown
- * that kept its own tally would show time remaining on a QR that had already
- * lapsed.
+ * component mounted: a phone that sleeps — which is exactly what happens while
+ * the student is away on SafeUPI's page — stops firing timers, and a countdown
+ * keeping its own tally would come back claiming time that had already passed.
  */
 export function secondsRemaining(expiresAt: string | null, now: number = Date.now()): number {
   if (!expiresAt) return 0;
@@ -182,14 +185,42 @@ export function secondsRemaining(expiresAt: string | null, now: number = Date.no
   return Math.max(0, Math.floor((end - now) / 1000));
 }
 
+/** Where the orders a payment covers are remembered across the redirect. */
+const PENDING_ORDERS_KEY = "klh.pendingPaymentOrders";
+
 /**
- * Whether this device can hand off to a UPI app directly.
+ * Remembers which orders a payment covers, so the completion page can send the
+ * student straight to their tokens after a full navigation away and back.
  *
- * A phone can open `upi://` and pay in one tap; a desktop browser cannot, and
- * must show the QR to be scanned by a phone instead. Checked by pointer
- * capability rather than by user-agent sniffing.
+ * sessionStorage rather than a URL parameter: order ids are not secrets, but
+ * they have no business in a URL that SafeUPI, its logs and the browser's
+ * history all get to see. Kept here rather than in the completion page so the
+ * checkouts do not eagerly import a lazily-loaded route and defeat its
+ * code-splitting.
  */
-export function canUseUpiIntent(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia?.("(pointer: coarse)").matches ?? false;
+export function rememberPendingOrders(orderIds: string[]): void {
+  try {
+    sessionStorage.setItem(PENDING_ORDERS_KEY, JSON.stringify(orderIds));
+  } catch {
+    // Private window with storage disabled. The tokens are still reachable
+    // from order history, so this is a convenience, not a requirement.
+  }
+}
+
+export function readPendingOrders(): string[] {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ORDERS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearPendingOrders(): void {
+  try {
+    sessionStorage.removeItem(PENDING_ORDERS_KEY);
+  } catch {
+    /* nothing to clear */
+  }
 }
