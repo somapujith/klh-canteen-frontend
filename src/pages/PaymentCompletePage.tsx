@@ -79,6 +79,19 @@ export function PaymentCompletePage() {
    * because ensureGuestSession() may have to mint one.
    */
   const [guestToken, setGuestToken] = useState<string | null>(null);
+  /**
+   * How long the "checking" phase has been waiting.
+   *
+   * SafeUPI's own settlement confirmation is NOT fast and NOT consistent —
+   * observed anywhere from ~20s to 500s+ for the same merchant and amount, with
+   * no way for us to speed it up (it is their PSP reconciliation, not anything
+   * we call or control). Telling a student "a few seconds" during a real
+   * 9-minute wait reads as broken and invites them to close the tab, which
+   * only stops OUR polling — SafeUPI's webhook still lands eventually, but the
+   * page would no longer be watching for it. So the copy below escalates with
+   * elapsed time instead of promising a duration we cannot guarantee.
+   */
+  const [waitedSeconds, setWaitedSeconds] = useState(0);
   const isGuest = !token;
 
   useEffect(() => {
@@ -107,6 +120,15 @@ export function PaymentCompletePage() {
       navigate(isGuest ? "/g/orders" : "/student/orders", { replace: true });
     }
   }, [isGuest, navigate]);
+
+  // A plain ticking clock, independent of the poll loop below — it only drives
+  // which reassurance copy is shown, so it must keep running even through a
+  // poll's own retry/backoff timing.
+  useEffect(() => {
+    if (phase !== "checking") return;
+    const timer = setInterval(() => setWaitedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [phase]);
 
   useEffect(() => {
     if (!paymentId) {
@@ -189,7 +211,14 @@ export function PaymentCompletePage() {
             </div>
             <h1 className="mt-4 text-base font-semibold text-gray-900">Confirming your payment</h1>
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
-              This usually takes a few seconds. Please don't close this page.
+              {waitedSeconds < 20
+                ? "This usually takes a few seconds."
+                : waitedSeconds < 90
+                  ? "Still confirming — some payments take a bit longer."
+                  : "This one is taking a while to confirm with the payment provider. If your account was debited, this page will update as soon as we hear back — please keep it open."}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-gray-500">
+              Please don't close this page or press back.
             </p>
           </>
         )}
