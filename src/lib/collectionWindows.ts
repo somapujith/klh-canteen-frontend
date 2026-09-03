@@ -20,6 +20,22 @@ const COLLECTION_ERROR_COPY: Record<string, string> = {
   COLLECTION_WINDOW_PAST: "That collection time has already passed. Pick a later slot.",
   COLLECTION_WINDOW_TOO_FAR: "You can only pre-book up to a week ahead. Pick an earlier slot.",
   COLLECTION_WINDOW_INVALID: "That collection time isn't a valid slot. Pick one from the list.",
+
+  // Payment failures. The gateway's own wording is written for whoever
+  // administers the merchant account ("No provider is enabled for this
+  // tenant"), which tells a hungry student nothing they can act on — so these
+  // say what happened to their order and what to do instead.
+  PAYMENT_PROVIDER_NOT_CONFIGURED:
+    "Online payment isn't set up yet. Please pay at the counter, or try again later.",
+  PAYMENT_GATEWAY_UNREACHABLE:
+    "We couldn't reach the payment service. Check your connection and try again.",
+  PAYMENT_GATEWAY_REJECTED:
+    "The payment service turned down that request. Please try again in a moment.",
+  PAYMENTS_DISABLED: "Online payment isn't available right now. Please pay at the counter.",
+  ORDERS_NOT_PAYABLE:
+    "Those items are no longer waiting for payment — they may have expired. Please start again.",
+  AMOUNT_TOO_LOW: "That total is below the minimum for an online payment.",
+  AMOUNT_TOO_HIGH: "That total is above the maximum for a single online payment.",
 };
 
 /** Readable message for any order-placement failure, with friendly copy for pre-booking codes. */
