@@ -6,6 +6,7 @@ import { GuestNav } from "../../components/GuestNav";
 import { Button, EmptyState, Stepper } from "../../components/ui";
 import { isPaymentsEnabled } from "../../lib/appConfig";
 import { rememberPendingOrders, startPayment } from "../../lib/payments";
+import { loadSafeUpiSdk } from "../../lib/safeUpiCheckout";
 import { useGuestCart, type GuestCartLine } from "../../hooks/useGuestCart";
 import { useToast } from "../../context/ToastContext";
 import type { Kitchen } from "../../types/admin";
@@ -210,6 +211,25 @@ export function GuestCheckoutPage() {
       const session = await startPayment(orderIds, { guestSession: sessionToken });
 
       rememberPendingOrders(orderIds);
+
+      const completeUrl = `${window.location.origin}/payment/complete?payment=${session.paymentId}`;
+
+      if (session.checkout) {
+        try {
+          await loadSafeUpiSdk(session.checkout.sdkUrl);
+          window.SafeUPI!.open({
+            token: session.checkout.token,
+            returnUrl: completeUrl,
+            // See CheckoutPage.tsx's handlePay for why onClose alone is the
+            // right (and only) hook here.
+            onClose: () => navigate(completeUrl),
+          });
+          return;
+        } catch {
+          // SDK failed to load — fall through to the hosted-page redirect.
+        }
+      }
+
       window.location.replace(session.paymentUrl);
     } catch (err) {
       setError(orderErrorMessage(err, "Could not start your payment"));

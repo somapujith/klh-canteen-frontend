@@ -9,6 +9,7 @@ import { Button, EmptyState, Stepper } from "../../components/ui";
 import { orderErrorMessage } from "../../lib/collectionWindows";
 import { isPaymentsEnabled } from "../../lib/appConfig";
 import { rememberPendingOrders, startPayment } from "../../lib/payments";
+import { loadSafeUpiSdk } from "../../lib/safeUpiCheckout";
 import type { Kitchen } from "../../types/admin";
 
 interface OrderResponse {
@@ -223,6 +224,29 @@ export function CheckoutPage() {
       // Remembered before navigating away, because this component is about to
       // be torn down by a full page load and its state goes with it.
       rememberPendingOrders(orderIds);
+
+      const completeUrl = `${window.location.origin}/payment/complete?payment=${session.paymentId}`;
+
+      if (session.checkout) {
+        try {
+          await loadSafeUpiSdk(session.checkout.sdkUrl);
+          window.SafeUPI!.open({
+            token: session.checkout.token,
+            returnUrl: completeUrl,
+            // SafeUPI's docs: onClose fires after onSuccess/onFailure/onCancel
+            // too, so it is the one place that always runs no matter how the
+            // modal exits — including a bare manual close with no other
+            // callback. Navigating to the completion page here (rather than
+            // trusting any callback payload) is what keeps the backend's own
+            // Status API check the only source of truth for fulfillment.
+            onClose: () => navigate(completeUrl),
+          });
+          return;
+        } catch {
+          // SDK failed to load (network hiccup, ad blocker) — fall through to
+          // the hosted-page redirect below.
+        }
+      }
 
       // A real navigation, not a router push: SafeUPI's page is another origin.
       // `replace` keeps the checkout out of history, so the browser Back button

@@ -31,6 +31,12 @@ export interface PaymentSession {
    * depend on it; the hosted page renders its own QR regardless.
    */
   qrCode: string | null;
+  /**
+   * Drives SafeUPI's Embedded JS Checkout modal (see src/lib/safeUpiCheckout.ts).
+   * `null` when SafeUPI doesn't return one for this business — callers fall
+   * back to `paymentUrl`'s full-page redirect.
+   */
+  checkout: { token: string; sdkUrl: string; expiresAt: string } | null;
   orderIds: string[];
 }
 
