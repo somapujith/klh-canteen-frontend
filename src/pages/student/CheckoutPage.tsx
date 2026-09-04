@@ -7,7 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import { Navbar } from "../../components/Navbar";
 import { Button, EmptyState, Stepper } from "../../components/ui";
 import { orderErrorMessage } from "../../lib/collectionWindows";
-import { isPaymentsEnabled } from "../../lib/appConfig";
+import { displayFeePercent, getAppConfig, platformFeeFor } from "../../lib/appConfig";
 import { rememberPendingOrders, startPayment } from "../../lib/payments";
 import { loadSafeUpiSdk } from "../../lib/safeUpiCheckout";
 import type { Kitchen } from "../../types/admin";
@@ -150,7 +150,7 @@ function LineRow({
 }
 
 export function CheckoutPage() {
-  const { token } = useAuth();
+  const { token, school } = useAuth();
   const { items, updateQty, removeItem, total, clear } = useCart();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -160,20 +160,49 @@ export function CheckoutPage() {
   const payRef = useRef<HTMLButtonElement>(null);
 
   const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null);
+  const [feePercent, setFeePercent] = useState(0);
 
-  // Asked once on mount so the pay button's label is correct before it is
-  // pressed, rather than the flow changing shape underneath the student.
+  /**
+   * Asked once on mount so the pay button's label is correct before it is
+   * pressed, rather than the flow changing shape underneath the student — and
+   * so the fee is on the summary before they agree to pay it.
+   *
+   * One call for both, because both live on the same cached /config response.
+   * `school` is threaded through because the fee is per-school; a session
+   * predating that field reports null, and passing it along lets the backend
+   * apply its own KLH default rather than this page guessing one.
+   *
+   * On failure both fall back to their safe direction, and payments-off is the
+   * load-bearing one: an unreachable /config means we cannot PROVE payments are
+   * configured, and guessing "on" sends the student into a checkout that 503s
+   * after their order is already placed and holding stock. Guessing "off" costs
+   * at worst a free order during an outage — recoverable, and visible to staff
+   * on the board. The other direction strands food. The fee falls back to 0,
+   * i.e. no fee line; see displayFeePercent in lib/appConfig.ts.
+   */
   useEffect(() => {
     let cancelled = false;
-    isPaymentsEnabled().then((on) => {
-      if (!cancelled) setPaymentsOn(on);
-    });
+    getAppConfig(school ?? undefined)
+      .then((config) => {
+        if (cancelled) return;
+        setPaymentsOn(config.paymentsEnabled === true);
+        setFeePercent(displayFeePercent(config));
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentsOn(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [school]);
 
   const itemCount = useMemo(() => items.reduce((sum, line) => sum + line.qty, 0), [items]);
+
+  // Rounded the way the backend rounds it, so the total shown here is the total
+  // charged. A 0% school produces fee === 0 and the row below is not rendered
+  // at all — no "Platform fee ₹0.00" on a summary where none applies.
+  const platformFee = platformFeeFor(total, feePercent);
+  const grandTotal = total + platformFee;
 
   /**
    * The backend splits a cart into one order per kitchen, which is why handlePay
@@ -322,9 +351,18 @@ export function CheckoutPage() {
               <dt>Subtotal</dt>
               <dd className="tabular-nums">₹{total.toFixed(2)}</dd>
             </div>
+            {/* Its own line, never folded into the total: a charge the student
+                did not choose has to be legible as a separate thing before they
+                pay it. Rendered only when a fee actually applies. */}
+            {platformFee > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <dt>Platform fee ({feePercent}%)</dt>
+                <dd className="tabular-nums">₹{platformFee.toFixed(2)}</dd>
+              </div>
+            )}
             <div className="flex justify-between border-t border-border pt-2 text-base font-semibold text-gray-900">
               <dt>Total</dt>
-              <dd className="tabular-nums">₹{total.toFixed(2)}</dd>
+              <dd className="tabular-nums">₹{grandTotal.toFixed(2)}</dd>
             </div>
           </dl>
 
@@ -375,7 +413,10 @@ export function CheckoutPage() {
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wider text-gray-500">Total</p>
-            <p className="text-lg font-bold text-gray-900 tabular-nums">₹{total.toFixed(2)}</p>
+            {/* Fee-inclusive, matching the summary above and the amount the
+                server will charge. The two totals on this page must never
+                disagree — this is the one the thumb is next to. */}
+            <p className="text-lg font-bold text-gray-900 tabular-nums">₹{grandTotal.toFixed(2)}</p>
           </div>
           <Button
             ref={payRef}

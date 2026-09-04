@@ -9,7 +9,14 @@ import type { AdminOrder, Category, MenuItem } from "../../types/admin";
 
 export function AdminDashboardPage() {
   const { token, role } = useAuth();
-  const [stats, setStats] = useState({ totalOrdersToday: 0, totalRevenueToday: "0.00" });
+  // totalPlatformFeeToday is the fee portion OF totalRevenueToday, not a
+  // number to add to it — the backend's revenue figure is already fee-inclusive
+  // because Order.totalAmount is. The two cards below are a breakdown, not a sum.
+  const [stats, setStats] = useState({
+    totalOrdersToday: 0,
+    totalRevenueToday: "0.00",
+    totalPlatformFeeToday: "0.00",
+  });
   const [isExporting, setIsExporting] = useState(false);
   const [loadingStats, setLoadingStats] = useState(true);
   const [lowStockItems, setLowStockItems] = useState<MenuItem[]>([]);
@@ -183,8 +190,21 @@ export function AdminDashboardPage() {
         </div>
 
         {/* Stats Section */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-surface rounded-2xl p-6 flat-shadow border border-gray-100 flex flex-col justify-center">
+        {/* Three across from `sm` up, two below it. A hard grid-cols-3 was the
+            first attempt and a phone screenshot killed it: at 390px the three
+            columns are ~100px each and "₹18420.50" clipped mid-digit in both
+            money cards. Orders is the narrow value, so it takes the full width
+            on the first row rather than leaving a hole beside the two money
+            cards.
+
+            Below `sm` the money cards also shed padding (p-4 vs p-6) and type
+            (text-2xl vs text-4xl). Both were needed: a truncated rupee figure is
+            not a smaller version of the number, it is a WRONG number — "₹18420…"
+            hides whether the day took 18,420 or 18,420,000. `truncate` stays as
+            a last-resort backstop, but it should never be what a real day's
+            takings hits. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="col-span-2 sm:col-span-1 bg-surface rounded-2xl p-6 flat-shadow border border-gray-100 flex flex-col justify-center min-w-0">
             <div className="text-sm text-gray-500 font-medium mb-2 uppercase tracking-wide">Today's Orders</div>
             {loadingStats ? (
                <div className="h-10 bg-gray-200 rounded w-16 animate-pulse"></div>
@@ -192,12 +212,23 @@ export function AdminDashboardPage() {
                <div className="text-4xl font-black text-gray-900">{stats.totalOrdersToday}</div>
             )}
           </div>
-          <div className="bg-surface rounded-2xl p-6 flat-shadow border border-gray-100 flex flex-col justify-center">
+          <div className="bg-surface rounded-2xl p-4 sm:p-6 flat-shadow border border-gray-100 flex flex-col justify-center min-w-0">
             <div className="text-sm text-gray-500 font-medium mb-2 uppercase tracking-wide">Today's Revenue</div>
             {loadingStats ? (
                <div className="h-10 bg-gray-200 rounded w-24 animate-pulse"></div>
             ) : (
-               <div className="text-4xl font-black text-brand-600">₹{stats.totalRevenueToday}</div>
+               <div className="text-2xl sm:text-4xl font-black text-brand-600 tabular-nums truncate" title={`₹${stats.totalRevenueToday}`}>₹{stats.totalRevenueToday}</div>
+            )}
+          </div>
+          <div className="bg-surface rounded-2xl p-4 sm:p-6 flat-shadow border border-gray-100 flex flex-col justify-center min-w-0">
+            {/* The fee portion OF the revenue beside it, not an addition to it.
+                Deliberately not brand-red: two red numbers side by side read as
+                two independent takings, which is exactly the wrong story. */}
+            <div className="text-sm text-gray-500 font-medium mb-2 uppercase tracking-wide">Platform Fee</div>
+            {loadingStats ? (
+               <div className="h-10 bg-gray-200 rounded w-24 animate-pulse"></div>
+            ) : (
+               <div className="text-2xl sm:text-4xl font-black text-gray-900 tabular-nums truncate" title={`₹${stats.totalPlatformFeeToday}`}>₹{stats.totalPlatformFeeToday}</div>
             )}
           </div>
         </div>
@@ -291,6 +322,24 @@ export function AdminDashboardPage() {
               <p className="text-xs text-gray-500 mt-1">Manage transactions</p>
             </div>
           </Link>
+
+          {/* /admin/platform-fee is SUPERADMIN-only (see App.tsx), same as
+              /admin/students above — a plain ADMIN shown this card would be
+              bounced to /login by the route guard, which reads as a broken
+              dashboard rather than as a permission boundary. */}
+          {role === "SUPERADMIN" && (
+          <Link to="/admin/platform-fee" className="bg-surface rounded-2xl p-6 flat-shadow border border-gray-100 hover:flat-shadow-hover hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center gap-4 group">
+            <div className="bg-teal-50 text-teal-600 p-4 rounded-2xl group-hover:bg-teal-100 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h1m-1 4h1v4h1m4-4h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 text-lg">Platform Fee</h3>
+              <p className="text-xs text-gray-500 mt-1">Set the per-school fee %</p>
+            </div>
+          </Link>
+          )}
         </div>
 
         {/* Export Reports Section */}

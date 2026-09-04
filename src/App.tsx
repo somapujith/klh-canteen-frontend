@@ -26,6 +26,7 @@ const SuperAdminDashboardPage = lazyRoute(() => import("./pages/admin/SuperAdmin
 const AdminUsersPage = lazyRoute(() => import("./pages/admin/AdminUsersPage").then(module => ({ default: module.AdminUsersPage })));
 const AdminAuditLogPage = lazyRoute(() => import("./pages/admin/AdminAuditLogPage").then(module => ({ default: module.AdminAuditLogPage })));
 const AdminCohortsPage = lazyRoute(() => import("./pages/admin/AdminCohortsPage").then(module => ({ default: module.AdminCohortsPage })));
+const SuperAdminPlatformFeePage = lazyRoute(() => import("./pages/admin/SuperAdminPlatformFeePage").then(module => ({ default: module.SuperAdminPlatformFeePage })));
 
 // Walk-up guest flow — public, no ProtectedRoute. Reached by scanning the printed QR at the counter.
 const GuestMenuPage = lazyRoute(() => import("./pages/guest/GuestMenuPage").then(module => ({ default: module.GuestMenuPage })));
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/admin/cohorts" element={<AdminCohortsPage />} />
             <Route path="/admin/system" element={<SuperAdminDashboardPage />} />
+            <Route path="/admin/platform-fee" element={<SuperAdminPlatformFeePage />} />
             <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
           </Route>
 

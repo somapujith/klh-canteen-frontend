@@ -4,7 +4,7 @@ import { ensureGuestSession, guestApi } from "../../lib/guestSession";
 import { orderErrorMessage } from "../../lib/collectionWindows";
 import { GuestNav } from "../../components/GuestNav";
 import { Button, EmptyState, Stepper } from "../../components/ui";
-import { isPaymentsEnabled } from "../../lib/appConfig";
+import { displayFeePercent, getAppConfig, platformFeeFor } from "../../lib/appConfig";
 import { rememberPendingOrders, startPayment } from "../../lib/payments";
 import { loadSafeUpiSdk } from "../../lib/safeUpiCheckout";
 import { useGuestCart, type GuestCartLine } from "../../hooks/useGuestCart";
@@ -154,18 +154,39 @@ export function GuestCheckoutPage() {
   const payRef = useRef<HTMLButtonElement>(null);
 
   const [paymentsOn, setPaymentsOn] = useState<boolean | null>(null);
+  const [feePercent, setFeePercent] = useState(0);
 
+  /**
+   * Same single config call as the student checkout, with the same failure
+   * fallbacks and the same reasoning for them — see CheckoutPage.tsx.
+   *
+   * Hardcoded to KLH, not read from a session: the counter flow is KLH-only.
+   * GuestGatePage admits only klh.edu.in Google accounts and brands itself with
+   * the KLH logo, and a guest session carries no school of its own to read. If
+   * guest ordering ever opens to DRK, this constant is the thing to replace.
+   */
   useEffect(() => {
     let cancelled = false;
-    isPaymentsEnabled().then((on) => {
-      if (!cancelled) setPaymentsOn(on);
-    });
+    getAppConfig("KLH")
+      .then((config) => {
+        if (cancelled) return;
+        setPaymentsOn(config.paymentsEnabled === true);
+        setFeePercent(displayFeePercent(config));
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentsOn(false);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
   const itemCount = useMemo(() => items.reduce((sum, line) => sum + line.qty, 0), [items]);
+
+  // Rounded the way the backend rounds it, so the total shown is the total
+  // charged. A 0% fee renders no row at all.
+  const platformFee = platformFeeFor(total, feePercent);
+  const grandTotal = total + platformFee;
 
   /**
    * The backend splits a cart into one order per kitchen, which is why
@@ -335,9 +356,17 @@ export function GuestCheckoutPage() {
               <dt>Subtotal</dt>
               <dd className="tabular-nums">₹{total.toFixed(2)}</dd>
             </div>
+            {/* Its own line, never folded into the total — see the student
+                CheckoutPage for why. Rendered only when a fee applies. */}
+            {platformFee > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <dt>Platform fee ({feePercent}%)</dt>
+                <dd className="tabular-nums">₹{platformFee.toFixed(2)}</dd>
+              </div>
+            )}
             <div className="flex justify-between border-t border-border pt-2 text-base font-semibold text-gray-900">
               <dt>Total</dt>
-              <dd className="tabular-nums">₹{total.toFixed(2)}</dd>
+              <dd className="tabular-nums">₹{grandTotal.toFixed(2)}</dd>
             </div>
           </dl>
 
@@ -386,7 +415,8 @@ export function GuestCheckoutPage() {
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wider text-gray-500">Total</p>
-            <p className="text-lg font-bold text-gray-900 tabular-nums">₹{total.toFixed(2)}</p>
+            {/* Fee-inclusive, matching the summary above and what is charged. */}
+            <p className="text-lg font-bold text-gray-900 tabular-nums">₹{grandTotal.toFixed(2)}</p>
           </div>
           <Button ref={payRef} onClick={handlePay} loading={placing} size="lg" className="flex-1">
             {placing ? "Processing" : paymentsOn ? "Pay by UPI" : "Place order"}
