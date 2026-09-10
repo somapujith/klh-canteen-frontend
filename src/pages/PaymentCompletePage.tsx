@@ -13,13 +13,14 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui";
 
 /**
- * Where SafeUPI returns the student after its hosted payment page.
+ * Where GuruPay returns the student after its hosted payment page.
  *
  * Landing here proves the student came back. It does NOT prove they paid —
- * they may have cancelled on SafeUPI's last screen, or closed the app and
- * reopened the tab — so this page never reads an outcome from the URL. It asks
- * our backend, which in turn confirms against SafeUPI's Status API before
- * releasing anything. The URL is a signal to go and check, nothing more.
+ * they may have cancelled on GuruPay's last screen, or closed the app and
+ * reopened the tab — so this page never reads an outcome from the URL (GuruPay's
+ * own docs warn against trusting those query params too). It asks our backend,
+ * which in turn confirms against GuruPay's check-status API before releasing
+ * anything. The URL is a signal to go and check, nothing more.
  *
  * It also has to work for someone arriving cold: a phone that switched apps
  * may reload this route from scratch, so everything needed is recovered from
@@ -82,14 +83,14 @@ export function PaymentCompletePage() {
   /**
    * How long the "checking" phase has been waiting.
    *
-   * SafeUPI's own settlement confirmation is NOT fast and NOT consistent —
-   * observed anywhere from ~20s to 500s+ for the same merchant and amount, with
-   * no way for us to speed it up (it is their PSP reconciliation, not anything
-   * we call or control). Telling a student "a few seconds" during a real
-   * 9-minute wait reads as broken and invites them to close the tab, which
-   * only stops OUR polling — SafeUPI's webhook still lands eventually, but the
-   * page would no longer be watching for it. So the copy below escalates with
-   * elapsed time instead of promising a duration we cannot guarantee.
+   * A UPI gateway's own settlement confirmation is not something we call or
+   * control — it is the provider's PSP reconciliation, and timing under
+   * GuruPay has not yet been observed in production the way SafeUPI's was.
+   * Telling a student "a few seconds" during a longer real wait reads as
+   * broken and invites them to close the tab, which only stops OUR polling —
+   * the webhook still lands eventually, but the page would no longer be
+   * watching for it. So the copy below escalates with elapsed time instead of
+   * promising a duration we cannot guarantee.
    */
   const [waitedSeconds, setWaitedSeconds] = useState(0);
   const isGuest = !token;
@@ -149,7 +150,7 @@ export function PaymentCompletePage() {
     let cancelled = false;
 
     // One immediate read first: the webhook usually lands while the student is
-    // still on SafeUPI's page, so the common case is already settled and the
+    // still on GuruPay's page, so the common case is already settled and the
     // poll below never runs a second iteration.
     (async () => {
       try {

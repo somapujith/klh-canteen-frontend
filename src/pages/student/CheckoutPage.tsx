@@ -9,7 +9,6 @@ import { Button, EmptyState, Stepper } from "../../components/ui";
 import { orderErrorMessage } from "../../lib/collectionWindows";
 import { displayFeePercent, getAppConfig, platformFeeFor } from "../../lib/appConfig";
 import { rememberPendingOrders, startPayment } from "../../lib/payments";
-import { loadSafeUpiSdk } from "../../lib/safeUpiCheckout";
 import type { Kitchen } from "../../types/admin";
 
 interface OrderResponse {
@@ -217,17 +216,17 @@ export function CheckoutPage() {
   }, [items]);
 
   /**
-   * Places the order, then sends the student to SafeUPI to pay.
+   * Places the order, then sends the student to GuruPay to pay.
    *
    * Two steps rather than one, and in this order on purpose: the order is
    * written and its stock reserved BEFORE any money is involved, so a student
    * can never be charged for food that sold out while they were paying.
    *
    * The cart is deliberately NOT cleared before leaving. If the student
-   * abandons SafeUPI's page or the payment fails, they come back to a checkout
+   * abandons GuruPay's page or the payment fails, they come back to a checkout
    * exactly as they left it, with something to retry. Only a confirmed payment
    * clears it — and that happens on the completion page, after the server has
-   * verified the money with SafeUPI.
+   * verified the money with GuruPay.
    */
   async function handlePay() {
     setPlacing(true);
@@ -254,32 +253,9 @@ export function CheckoutPage() {
       // be torn down by a full page load and its state goes with it.
       rememberPendingOrders(orderIds);
 
-      const completeUrl = `${window.location.origin}/payment/complete?payment=${session.paymentId}`;
-
-      if (session.checkout) {
-        try {
-          await loadSafeUpiSdk(session.checkout.sdkUrl);
-          window.SafeUPI!.open({
-            token: session.checkout.token,
-            returnUrl: completeUrl,
-            // SafeUPI's docs: onClose fires after onSuccess/onFailure/onCancel
-            // too, so it is the one place that always runs no matter how the
-            // modal exits — including a bare manual close with no other
-            // callback. Navigating to the completion page here (rather than
-            // trusting any callback payload) is what keeps the backend's own
-            // Status API check the only source of truth for fulfillment.
-            onClose: () => navigate(completeUrl),
-          });
-          return;
-        } catch {
-          // SDK failed to load (network hiccup, ad blocker) — fall through to
-          // the hosted-page redirect below.
-        }
-      }
-
-      // A real navigation, not a router push: SafeUPI's page is another origin.
+      // A real navigation, not a router push: GuruPay's page is another origin.
       // `replace` keeps the checkout out of history, so the browser Back button
-      // from SafeUPI does not land on a stale cart that has already been ordered.
+      // from GuruPay does not land on a stale cart that has already been ordered.
       window.location.replace(session.paymentUrl);
     } catch (err) {
       // A checkout that failed after the orders were written leaves them

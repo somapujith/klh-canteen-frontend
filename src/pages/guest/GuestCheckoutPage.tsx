@@ -6,7 +6,6 @@ import { GuestNav } from "../../components/GuestNav";
 import { Button, EmptyState, Stepper } from "../../components/ui";
 import { displayFeePercent, getAppConfig, platformFeeFor } from "../../lib/appConfig";
 import { rememberPendingOrders, startPayment } from "../../lib/payments";
-import { loadSafeUpiSdk } from "../../lib/safeUpiCheckout";
 import { useGuestCart, type GuestCartLine } from "../../hooks/useGuestCart";
 import { useToast } from "../../context/ToastContext";
 import type { Kitchen } from "../../types/admin";
@@ -201,7 +200,7 @@ export function GuestCheckoutPage() {
   }, [items]);
 
   /**
-   * Places the order, then sends the guest to SafeUPI to pay.
+   * Places the order, then sends the guest to GuruPay to pay.
    *
    * Same shape and same reasoning as the student checkout: the order is written
    * and its stock reserved before any money is involved, and the cart survives
@@ -232,24 +231,6 @@ export function GuestCheckoutPage() {
       const session = await startPayment(orderIds, { guestSession: sessionToken });
 
       rememberPendingOrders(orderIds);
-
-      const completeUrl = `${window.location.origin}/payment/complete?payment=${session.paymentId}`;
-
-      if (session.checkout) {
-        try {
-          await loadSafeUpiSdk(session.checkout.sdkUrl);
-          window.SafeUPI!.open({
-            token: session.checkout.token,
-            returnUrl: completeUrl,
-            // See CheckoutPage.tsx's handlePay for why onClose alone is the
-            // right (and only) hook here.
-            onClose: () => navigate(completeUrl),
-          });
-          return;
-        } catch {
-          // SDK failed to load — fall through to the hosted-page redirect.
-        }
-      }
 
       window.location.replace(session.paymentUrl);
     } catch (err) {

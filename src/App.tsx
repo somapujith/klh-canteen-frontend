@@ -58,7 +58,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoleRedirect />} />
           <Route path="/login" element={<LoginPage />} />
-          {/* Where SafeUPI returns the browser after its hosted payment page.
+          {/* Where GuruPay returns the browser after its hosted payment page.
               Deliberately outside every auth guard: a student and a walk-up
               guest both land here, and the page resolves its own credentials.
               A guard here would bounce a paying customer to the login screen at

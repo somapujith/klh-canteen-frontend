@@ -1,16 +1,16 @@
 import { apiClient, ApiClientError } from "./apiClient";
 
 /**
- * UPI payment client (SafeUPI, hosted checkout).
+ * UPI payment client (GuruPay, hosted checkout).
  *
  * Pairs with backend routes/payments.ts. The flow: place the order as normal
  * (written, holding stock, hidden from the kitchen), open a payment for it,
- * send the student to SafeUPI's hosted page, and confirm on their return.
+ * send the student to GuruPay's hosted page, and confirm on their return.
  *
  * The backend is the only thing that decides whether a payment succeeded.
  * Landing back on the redirect URL proves the student came back — not that
  * they paid — so the completion page always asks the server, which in turn
- * confirms against SafeUPI's own Status API before releasing anything.
+ * confirms against GuruPay's own check-status API before releasing anything.
  */
 
 export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "EXPIRED";
@@ -22,21 +22,10 @@ export interface PaymentSession {
   currency: string;
   expiresAt: string;
   /**
-   * SafeUPI's hosted checkout page. Under the hosted flow this IS the payment
-   * UI — the student is sent here and comes back to the redirect URL.
+   * GuruPay's hosted checkout page. This IS the payment UI — the student is
+   * sent here and comes back to the redirect URL.
    */
   paymentUrl: string;
-  /**
-   * Returned only for selected SafeUPI businesses, so usually null. Never
-   * depend on it; the hosted page renders its own QR regardless.
-   */
-  qrCode: string | null;
-  /**
-   * Drives SafeUPI's Embedded JS Checkout modal (see src/lib/safeUpiCheckout.ts).
-   * `null` when SafeUPI doesn't return one for this business — callers fall
-   * back to `paymentUrl`'s full-page redirect.
-   */
-  checkout: { token: string; sdkUrl: string; expiresAt: string } | null;
   orderIds: string[];
 }
 
@@ -181,7 +170,7 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
  *
  * Derived from the server's `expiresAt` rather than counted down from when the
  * component mounted: a phone that sleeps — which is exactly what happens while
- * the student is away on SafeUPI's page — stops firing timers, and a countdown
+ * the student is away on GuruPay's page — stops firing timers, and a countdown
  * keeping its own tally would come back claiming time that had already passed.
  */
 export function secondsRemaining(expiresAt: string | null, now: number = Date.now()): number {
@@ -199,7 +188,7 @@ const PENDING_ORDERS_KEY = "klh.pendingPaymentOrders";
  * student straight to their tokens after a full navigation away and back.
  *
  * sessionStorage rather than a URL parameter: order ids are not secrets, but
- * they have no business in a URL that SafeUPI, its logs and the browser's
+ * they have no business in a URL that GuruPay, its logs and the browser's
  * history all get to see. Kept here rather than in the completion page so the
  * checkouts do not eagerly import a lazily-loaded route and defeat its
  * code-splitting.
