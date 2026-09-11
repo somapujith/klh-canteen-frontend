@@ -56,7 +56,7 @@ export function StudentMenuPage() {
   const fetchMenu = useCallback(() => {
     const requestId = ++menuRequestIdRef.current;
     return apiClient
-      .get<{ categories: MenuCategory[] }>("/menu")
+      .get<{ categories: MenuCategory[] }>(`/menu?school=${encodeURIComponent(school ?? "")}`)
       .then((data) => {
         if (requestId !== menuRequestIdRef.current) return;
         setCategories(data.categories);
@@ -64,7 +64,7 @@ export function StudentMenuPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [school]);
 
   const fetchOrders = useCallback(() => {
     const requestId = ++ordersRequestIdRef.current;

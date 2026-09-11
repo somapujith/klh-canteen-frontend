@@ -39,7 +39,7 @@ type Pending =
   | { kind: "bulk"; category: Category; isAvailable: boolean };
 
 export function AdminMenuPage() {
-  const { token, userId } = useAuth();
+  const { token, userId, school } = useAuth();
   const { showToast } = useToast();
   const { pushAlert, dismissAlertForItem } = useStockAlerts();
 
@@ -70,7 +70,9 @@ export function AdminMenuPage() {
       // that could un-hide it), and it returns the physical stockQty rather
       // than the customer-facing "still buyable" figure, which is the number an
       // admin restocks against.
-      const data = await apiClient.get<{ categories: Category[] }>("/menu?admin=true");
+      const data = await apiClient.get<{ categories: Category[] }>(
+        `/menu?admin=true&school=${encodeURIComponent(school ?? "")}`
+      );
       setCategories(data.categories);
       setLoadError(null);
     } catch (err) {
@@ -78,7 +80,7 @@ export function AdminMenuPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [school]);
 
   useEffect(() => {
     void loadMenu();

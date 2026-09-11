@@ -8,7 +8,7 @@ import { useSSE, type StockDelta } from "../../hooks/useSSE";
 import type { AdminOrder, Category, MenuItem } from "../../types/admin";
 
 export function AdminDashboardPage() {
-  const { token, role } = useAuth();
+  const { token, role, school } = useAuth();
   // totalPlatformFeeToday is the fee portion OF totalRevenueToday, not a
   // number to add to it — the backend's revenue figure is already fee-inclusive
   // because Order.totalAmount is. The two cards below are a breakdown, not a sum.
@@ -29,18 +29,21 @@ export function AdminDashboardPage() {
   }, [token]);
 
   const loadLowStock = useCallback(() => {
-    return apiClient.get<{ categories: Category[] }>("/menu?admin=true").then((data) => {
-      const items: MenuItem[] = [];
-      data.categories.forEach((cat) => {
-        cat.items.forEach((item) => {
-          if (item.stockQty < 10) {
-            items.push(item);
-          }
+    return apiClient
+      .get<{ categories: Category[] }>(`/menu?admin=true&school=${encodeURIComponent(school ?? "")}`)
+      .then((data) => {
+        const items: MenuItem[] = [];
+        data.categories.forEach((cat) => {
+          cat.items.forEach((item) => {
+            if (item.stockQty < 10) {
+              items.push(item);
+            }
+          });
         });
-      });
-      setLowStockItems(items);
-    }).catch(console.error);
-  }, []);
+        setLowStockItems(items);
+      })
+      .catch(console.error);
+  }, [school]);
 
   const loadDashboardData = useCallback(() => {
     loadStats();
@@ -86,7 +89,9 @@ export function AdminDashboardPage() {
   async function exportInventory() {
     setIsExporting(true);
     try {
-      const { categories } = await apiClient.get<{ categories: Category[] }>("/menu?admin=true");
+      const { categories } = await apiClient.get<{ categories: Category[] }>(
+        `/menu?admin=true&school=${encodeURIComponent(school ?? "")}`
+      );
       const rows: string[][] = [];
       categories.forEach((cat) => {
         cat.items.forEach((item) => {
