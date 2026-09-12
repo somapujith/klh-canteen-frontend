@@ -85,17 +85,47 @@ export function AdminPaymentsPage() {
         ) : (
           <>
             {stats && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center">
-                  <div className="text-sm font-medium text-gray-500 mb-1">This Month's Payments</div>
-                  <div className="text-3xl font-bold text-gray-900">₹{stats.thisMonthTotal}</div>
-                </div>
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center">
-                  <div className="text-sm font-medium text-gray-500 mb-1">
-                    Commission ({stats.commissionPercent}%)
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center">
+                    <div className="text-sm font-medium text-gray-500 mb-1">This Month's Payments</div>
+                    <div className="text-3xl font-bold text-gray-900">₹{stats.thisMonthTotal}</div>
                   </div>
-                  <div className="text-3xl font-bold text-brand-600">₹{stats.commission}</div>
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-center">
+                    <div className="text-sm font-medium text-gray-500 mb-1">
+                      Total Commission ({stats.commissionPercent}%)
+                    </div>
+                    <div className="text-3xl font-bold text-brand-600">₹{stats.commission}</div>
+                  </div>
                 </div>
+
+                {stats.itemBreakdown && stats.itemBreakdown.length > 0 && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-900">Commission by Item (This Month)</h3>
+                    </div>
+                    <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Qty Sold</th>
+                            <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Commission</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {stats.itemBreakdown.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{item.itemName}</td>
+                              <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 text-right">{item.qtySold}</td>
+                              <td className="px-6 py-3 whitespace-nowrap text-sm font-semibold text-brand-600 text-right">₹{item.commission}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

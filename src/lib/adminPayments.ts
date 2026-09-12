@@ -4,6 +4,11 @@ export interface AdminPaymentStats {
   thisMonthTotal: string;
   commission: string;
   commissionPercent: number;
+  itemBreakdown: {
+    itemName: string;
+    qtySold: number;
+    commission: string;
+  }[];
 }
 
 export interface AdminPaymentRow {
